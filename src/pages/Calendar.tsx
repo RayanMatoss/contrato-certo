@@ -324,7 +324,7 @@ export default function Calendar() {
                       <Bell className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                       <h3 className="text-base font-medium">Nenhuma tarefa nesta semana</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Clique em "Nova Tarefa" para criar uma
+                        Clique em &quot;Nova Tarefa&quot; para criar uma
                       </p>
                     </div>
                   ) : (
@@ -384,7 +384,7 @@ export default function Calendar() {
                         {date ? `Nenhuma tarefa para ${formatDate(date.toISOString())}` : "Nenhuma tarefa para hoje"}
                       </h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Selecione uma data no calendário ou clique em "Nova Tarefa"
+                        Selecione uma data no calendário ou clique em &quot;Nova Tarefa&quot;
                       </p>
                     </div>
                   ) : (
@@ -440,7 +440,7 @@ export default function Calendar() {
                       <Bell className="h-12 w-12 mx-auto text-muted-foreground mb-2" />
                       <h3 className="text-base font-medium">Nenhuma tarefa neste mês</h3>
                       <p className="text-sm text-muted-foreground mt-1">
-                        Clique em "Nova Tarefa" para criar uma
+                        Clique em &quot;Nova Tarefa&quot; para criar uma
                       </p>
                     </div>
                   ) : (

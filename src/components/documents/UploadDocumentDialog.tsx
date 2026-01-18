@@ -80,7 +80,6 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
-  const tenantsArray = Array.isArray(tenants) ? tenants : [];
 
   const form = useForm<DocumentFormValues>({
     resolver: zodResolver(documentSchema),
@@ -271,7 +270,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
         <Form {...form}>
           <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
             {/* Aviso se não houver empresas */}
-            {tenantsArray.length === 0 && (
+            {tenants.length === 0 && (
               <div className="flex items-center gap-2 p-3 rounded-lg bg-yellow-50 border border-yellow-200 text-yellow-800">
                 <AlertCircle className="h-4 w-4" />
                 <span className="text-sm">
@@ -337,7 +336,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
               render={({ field }) => (
                 <FormItem>
                   <FormLabel>Empresa *</FormLabel>
-                  <Select onValueChange={field.onChange} value={field.value} disabled={tenantsArray.length === 0}>
+                  <Select onValueChange={field.onChange} value={field.value} disabled={tenants.length === 0}>
                     <FormControl>
                       <SelectTrigger>
                         <div className="flex items-center gap-2">
@@ -347,7 +346,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {tenantsArray.map((tenant) => (
+                      {tenants.map((tenant) => (
                         <SelectItem key={tenant.id} value={tenant.id}>
                           {tenant.name}
                         </SelectItem>

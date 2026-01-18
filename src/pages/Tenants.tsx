@@ -17,20 +17,10 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/hooks/use-auth";
-import { useTenantSelector } from "@/hooks/use-tenant-selector";
+import { useTenantSelector, TenantWithRole } from "@/hooks/use-tenant-selector";
 import { NewTenantDialog } from "@/components/tenants/NewTenantDialog";
 import { TenantViewDialog } from "@/components/tenants/TenantViewDialog";
 import { toast } from "sonner";
-
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  cnpj: string | null;
-  logo_url: string | null;
-  role: string;
-  created_at: string;
-}
 
 function getInitials(name: string): string {
   return name
@@ -45,7 +35,7 @@ export default function Tenants() {
   const [searchTerm, setSearchTerm] = useState("");
   const [isNewTenantOpen, setIsNewTenantOpen] = useState(false);
   const [editingTenantId, setEditingTenantId] = useState<string | undefined>(undefined);
-  const [viewingTenant, setViewingTenant] = useState<Tenant | null>(null);
+  const [viewingTenant, setViewingTenant] = useState<TenantWithRole | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const { user } = useAuth();
   const { tenants, selectedTenantId, setSelectedTenantId } = useTenantSelector();
@@ -192,7 +182,7 @@ export default function Tenants() {
                       <div className="flex items-center gap-2">
                         <StatusBadge
                           label={tenant.role === "admin" ? "Administrador" : tenant.role === "escrita" ? "Editor" : "Leitura"}
-                          variant={tenant.role === "admin" ? "success" : tenant.role === "escrita" ? "primary" : "muted"}
+                          variant={tenant.role === "admin" ? "success" : tenant.role === "escrita" ? "info" : "muted"}
                         />
                       </div>
                     )}

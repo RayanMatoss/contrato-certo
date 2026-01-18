@@ -6,6 +6,16 @@ import { useEffect, useState } from "react";
 
 const SELECTED_TENANT_KEY = "selected_tenant_id";
 
+export interface TenantWithRole {
+  id: string;
+  name: string;
+  slug: string;
+  cnpj?: string | null;
+  logo_url?: string | null;
+  role: string;
+  created_at?: string | null;
+}
+
 export function useTenantSelector() {
   const [userId, setUserId] = useState<string | null>(null);
 
@@ -28,14 +38,14 @@ export function useTenantSelector() {
   }, []);
 
   // Buscar todos os tenants do usuário
-  const { data: tenants, isLoading: loadingTenants } = useQuery({
+  const { data: tenants, isLoading: loadingTenants } = useQuery<TenantWithRole[]>({
     queryKey: ["user-tenants", userId],
-    queryFn: async () => {
+    queryFn: async (): Promise<TenantWithRole[]> => {
       if (!userId) return [];
 
       // Primeiro buscar os memberships
       const { data: memberships, error: membershipsError } = await supabase
-        .from("tenant_memberships")
+        .from("tenant_memberships" as never)
         .select("tenant_id, role, created_at")
         .eq("user_id", userId)
         .order("created_at", { ascending: true });
@@ -48,17 +58,19 @@ export function useTenantSelector() {
       if (!memberships || memberships.length === 0) return [];
 
       // Buscar os tenants correspondentes
-      const tenantIds = memberships.map((m) => m.tenant_id);
+      const typedMemberships = memberships as Array<{ tenant_id: string; role: string; created_at: string }>;
+      const tenantIds = typedMemberships.map((m) => m.tenant_id);
       const { data: tenantsData, error: tenantsError } = await supabase
-        .from("tenants")
+        .from("tenants" as never)
         .select("id, name, slug, cnpj, logo_url, created_at")
         .in("id", tenantIds);
 
       if (tenantsError) throw tenantsError;
 
       // Combinar dados
-      return memberships.map((membership) => {
-        const tenant = tenantsData?.find((t) => t.id === membership.tenant_id);
+      const typedTenantsData = tenantsData as Array<{ id: string; name?: string; slug?: string; cnpj?: string; logo_url?: string; created_at?: string }> | null;
+      return typedMemberships.map((membership): TenantWithRole => {
+        const tenant = typedTenantsData?.find((t) => t.id === membership.tenant_id);
         return {
           id: membership.tenant_id,
           name: tenant?.name || "Sem nome",
@@ -72,7 +84,7 @@ export function useTenantSelector() {
     },
     enabled: !!userId,
     staleTime: 5 * 60 * 1000, // 5 minutos
-    cacheTime: 30 * 60 * 1000, // 30 minutos
+    gcTime: 30 * 60 * 1000, // 30 minutos (renamed from cacheTime in v5)
   });
 
   // Obter tenant selecionado do localStorage ou usar o primeiro
@@ -112,9 +124,9 @@ export function useTenantSelector() {
   const selectedTenant = tenants?.find((t) => t.id === selectedTenantId) || null;
 
   return {
-    tenants: tenants || [],
+    tenants: (tenants || []) as TenantWithRole[],
     selectedTenantId,
-    selectedTenant,
+    selectedTenant: selectedTenant as TenantWithRole | null,
     setSelectedTenantId,
     isLoading: loadingTenants,
   };

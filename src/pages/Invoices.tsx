@@ -367,7 +367,7 @@ export default function Invoices() {
             ) : filteredInvoices.length === 0 ? (
               <Card>
                 <CardContent className="p-6 text-center text-muted-foreground">
-                  Nenhuma nota fiscal encontrada. Clique em "Nova Nota Fiscal" para começar.
+                  Nenhuma nota fiscal encontrada. Clique em &quot;Nova Nota Fiscal&quot; para começar.
                 </CardContent>
               </Card>
             ) : (

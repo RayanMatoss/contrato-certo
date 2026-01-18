@@ -13,21 +13,12 @@ import { StatusBadge } from "@/components/ui/status-badge";
 import { Building2, Calendar, FileText, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
-
-interface Tenant {
-  id: string;
-  name: string;
-  slug: string;
-  cnpj: string | null;
-  logo_url: string | null;
-  role: string;
-  created_at: string;
-}
+import { TenantWithRole } from "@/hooks/use-tenant-selector";
 
 interface TenantViewDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  tenant: Tenant | null;
+  tenant: TenantWithRole | null;
   onEdit: () => void;
   onSwitch: () => void;
   isSelected: boolean;
@@ -63,7 +54,7 @@ export function TenantViewDialog({ open, onOpenChange, tenant, onEdit, onSwitch,
             <div className="flex flex-col gap-2 items-end">
               <StatusBadge
                 label={tenant.role === "admin" ? "Administrador" : tenant.role === "escrita" ? "Editor" : "Leitura"}
-                variant={tenant.role === "admin" ? "success" : tenant.role === "escrita" ? "primary" : "muted"}
+                variant={tenant.role === "admin" ? "success" : tenant.role === "escrita" ? "info" : "muted"}
               />
               {isSelected && (
                 <StatusBadge

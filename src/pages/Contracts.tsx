@@ -381,7 +381,7 @@ export default function Contracts() {
         {!isLoading && contracts.length === 0 && (
           <Card>
             <CardContent className="p-6 text-center text-muted-foreground">
-              Nenhum contrato encontrado. Clique em "Novo Contrato" para começar.
+              Nenhum contrato encontrado. Clique em &quot;Novo Contrato&quot; para começar.
             </CardContent>
           </Card>
         )}

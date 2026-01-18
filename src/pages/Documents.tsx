@@ -456,7 +456,7 @@ export default function Documents() {
                 ) : filteredDocuments.length === 0 ? (
                   <TableRow>
                     <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum documento encontrado. Clique em "Upload Documento" para começar.
+                      Nenhum documento encontrado. Clique em &quot;Upload Documento&quot; para começar.
                     </TableCell>
                   </TableRow>
                 ) : (

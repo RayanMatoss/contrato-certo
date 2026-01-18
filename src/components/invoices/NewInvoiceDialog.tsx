@@ -100,7 +100,6 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
   const [selectedContractId, setSelectedContractId] = useState<string>("");
   const isEditing = !!invoiceId;
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
-  const tenantsArray = Array.isArray(tenants) ? tenants : [];
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
@@ -360,7 +359,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
           </DialogHeader>
           <div className="space-y-3 py-4">
             <p className="text-sm text-muted-foreground">
-              Acesse a página "Empresas" para criar uma nova empresa.
+              Acesse a página &quot;Empresas&quot; para criar uma nova empresa.
             </p>
           </div>
           <DialogFooter>
@@ -402,7 +401,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
                         setSelectedContractId("");
                       }} 
                       value={field.value}
-                      disabled={tenantsArray.length === 0 || isEditing}
+                      disabled={tenants.length === 0 || isEditing}
                     >
                       <FormControl>
                         <SelectTrigger>
@@ -412,7 +411,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {tenantsArray.map((tenant) => (
+                        {tenants.map((tenant) => (
                           <SelectItem key={tenant.id} value={tenant.id}>
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />

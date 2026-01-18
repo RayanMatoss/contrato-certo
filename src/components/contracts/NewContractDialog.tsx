@@ -272,7 +272,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
           </DialogHeader>
           <div className="space-y-3 py-4">
             <p className="text-sm text-muted-foreground">
-              Acesse a página "Empresas" para criar uma nova empresa.
+              Acesse a página &quot;Empresas&quot; para criar uma nova empresa.
             </p>
           </div>
           <DialogFooter>
