@@ -49,6 +49,24 @@ const documentSchema = z.object({
 
 type DocumentFormValues = z.infer<typeof documentSchema>;
 
+type UUID = string;
+
+interface ContractRow {
+  id: UUID;
+  numero: string;
+  clients?: {
+    id: UUID;
+    razao_social?: string;
+    nome_fantasia?: string | null;
+  } | null;
+}
+
+interface ClientRow {
+  id: UUID;
+  razao_social: string;
+  nome_fantasia?: string | null;
+}
+
 interface UploadDocumentDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -88,7 +106,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
       if (!selectedTenantId) return [];
       
       const { data, error } = await supabase
-        .from("contracts")
+        .from("contracts" as never)
         .select(`
           id,
           numero,
@@ -115,7 +133,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
       if (!selectedTenantId) return [];
       
       const { data, error } = await supabase
-        .from("clients")
+        .from("clients" as never)
         .select("id, razao_social, nome_fantasia")
         .eq("tenant_id", selectedTenantId)
         .eq("status", "ativo")
@@ -145,7 +163,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
 
       // Upload para Supabase Storage
       const { data: uploadData, error: uploadError } = await supabase.storage
-        .from("documents")
+        .from("documents" as never)
         .upload(filePath, selectedFile, {
           cacheControl: "3600",
           upsert: false,
@@ -155,7 +173,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
 
       // Criar registro no banco de dados
       const { data, error } = await supabase
-        .from("documents")
+        .from("documents" as never)
         .insert({
           tenant_id: values.tenant_id,
           name: values.name,
@@ -168,7 +186,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
           client_id: values.client_id || null,
           observacoes: values.observacoes || null,
           created_by: user.id,
-        })
+        } as never)
         .select()
         .single();
 
@@ -416,7 +434,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {contracts?.map((contract: any) => {
+                        {contracts?.map((contract: ContractRow) => {
                           const cliente = contract.clients?.nome_fantasia || contract.clients?.razao_social || "Contratante não encontrado";
                           return (
                             <SelectItem key={contract.id} value={contract.id}>
@@ -448,7 +466,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {clients?.map((client: any) => (
+                        {clients?.map((client: ClientRow) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.nome_fantasia || client.razao_social}
                           </SelectItem>

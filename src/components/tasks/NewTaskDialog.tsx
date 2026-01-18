@@ -48,6 +48,24 @@ const taskSchema = z.object({
 
 type TaskFormValues = z.infer<typeof taskSchema>;
 
+type UUID = string;
+
+interface ContractRow {
+  id: UUID;
+  numero: string;
+  clients?: {
+    id: UUID;
+    razao_social?: string;
+    nome_fantasia?: string | null;
+  } | null;
+}
+
+interface ClientRow {
+  id: UUID;
+  razao_social: string;
+  nome_fantasia?: string | null;
+}
+
 interface NewTaskDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -76,7 +94,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
       if (!tenantId) return [];
       
       const { data, error } = await supabase
-        .from("contracts")
+        .from("contracts" as never)
         .select(`
           id,
           numero,
@@ -103,7 +121,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
       if (!tenantId) return [];
       
       const { data, error } = await supabase
-        .from("clients")
+        .from("clients" as never)
         .select("id, razao_social, nome_fantasia")
         .eq("tenant_id", tenantId)
         .eq("status", "ativo")
@@ -123,7 +141,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
       }
 
       const { data, error } = await supabase
-        .from("tasks")
+        .from("tasks" as never)
         .insert({
           tenant_id: tenantId,
           title: values.title,
@@ -134,7 +152,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
           contract_id: values.contract_id || null,
           client_id: values.client_id || null,
           created_by: user.id,
-        })
+        } as never)
         .select()
         .single();
 
@@ -324,7 +342,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {contracts?.map((contract: any) => {
+                        {contracts?.map((contract: ContractRow) => {
                           const cliente = contract.clients?.nome_fantasia || contract.clients?.razao_social || "Contratante não encontrado";
                           return (
                             <SelectItem key={contract.id} value={contract.id}>
@@ -356,7 +374,7 @@ export function NewTaskDialog({ open, onOpenChange, tenantId, selectedDate }: Ne
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {clients?.map((client: any) => (
+                        {clients?.map((client: ClientRow) => (
                           <SelectItem key={client.id} value={client.id}>
                             {client.nome_fantasia || client.razao_social}
                           </SelectItem>

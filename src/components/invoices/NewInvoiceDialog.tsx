@@ -76,6 +76,17 @@ const invoiceSchema = z.object({
 
 type InvoiceFormValues = z.infer<typeof invoiceSchema>;
 
+type UUID = string;
+
+interface ContractRow {
+  id: UUID;
+  numero: string;
+  clients?: {
+    nome_fantasia?: string;
+    razao_social?: string;
+  } | null;
+}
+
 interface NewInvoiceDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -100,13 +111,13 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
   });
 
   // Buscar dados da nota fiscal para edição
-  const { data: invoiceData, isLoading: loadingInvoice } = useQuery({
+  const { data: invoiceDataFromQuery, isLoading: loadingInvoice } = useQuery({
     queryKey: ["invoice", invoiceId],
     queryFn: async () => {
       if (!invoiceId) return null;
       
       const { data, error } = await supabase
-        .from("invoices")
+        .from("invoices" as never)
         .select("*")
         .eq("id", invoiceId)
         .single();
@@ -119,22 +130,34 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
 
   // Preencher formulário quando os dados da nota fiscal forem carregados
   useEffect(() => {
-    if (invoiceData && isEditing) {
+    if (invoiceDataFromQuery && isEditing) {
+      const typedInvoiceData = invoiceDataFromQuery as {
+        tenant_id: string;
+        contract_id: string;
+        competencia: string;
+        numero_nf?: string;
+        data_vencimento: string;
+        valor_bruto: number;
+        valor_impostos?: number;
+        valor_liquido: number;
+        status: string;
+        observacoes?: string;
+      };
       form.reset({
-        tenant_id: invoiceData.tenant_id,
-        contract_id: invoiceData.contract_id,
-        competencia: invoiceData.competencia,
-        numero_nf: invoiceData.numero_nf || "",
-        data_vencimento: invoiceData.data_vencimento,
-        valor_bruto: formatCurrency(invoiceData.valor_bruto),
-        valor_impostos: formatCurrency(invoiceData.valor_impostos || 0),
-        valor_liquido: formatCurrency(invoiceData.valor_liquido),
-        status: invoiceData.status as "em_cobranca" | "paga",
-        observacoes: invoiceData.observacoes || "",
+        tenant_id: typedInvoiceData.tenant_id,
+        contract_id: typedInvoiceData.contract_id,
+        competencia: typedInvoiceData.competencia,
+        numero_nf: typedInvoiceData.numero_nf || "",
+        data_vencimento: typedInvoiceData.data_vencimento,
+        valor_bruto: formatCurrency(typedInvoiceData.valor_bruto),
+        valor_impostos: formatCurrency(typedInvoiceData.valor_impostos || 0),
+        valor_liquido: formatCurrency(typedInvoiceData.valor_liquido),
+        status: typedInvoiceData.status as "em_cobranca" | "paga",
+        observacoes: typedInvoiceData.observacoes || "",
       });
-      setSelectedContractId(invoiceData.contract_id);
+      setSelectedContractId(typedInvoiceData.contract_id);
     }
-  }, [invoiceData, isEditing, form]);
+  }, [invoiceDataFromQuery, isEditing, form]);
 
   // Observar tenant_id selecionado no formulário para buscar contratos
   const selectedTenantId = form.watch("tenant_id");
@@ -146,7 +169,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
       if (!selectedTenantId) return [];
       
       const { data, error } = await supabase
-        .from("contracts")
+        .from("contracts" as never)
         .select(`
           id,
           numero,
@@ -173,7 +196,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
       if (!selectedContractId) return null;
       
       const { data, error } = await supabase
-        .from("contracts")
+        .from("contracts" as never)
         .select(`
           id,
           client_id,
@@ -195,7 +218,9 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
   // Mutation para criar/atualizar nota fiscal
   const saveInvoice = useMutation({
     mutationFn: async (values: InvoiceFormValues) => {
-      const clientId = contractData?.client_id || invoiceData?.client_id;
+      const typedContractData = contractData as { client_id?: string } | null;
+      const invoiceDataForClient = invoiceDataFromQuery as { client_id?: string } | null;
+      const clientId = typedContractData?.client_id || invoiceDataForClient?.client_id;
       if (!clientId) {
         throw new Error("Contratante não encontrado para o contrato selecionado");
       }
@@ -222,11 +247,11 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
       if (isEditing && invoiceId) {
         // Atualizar nota fiscal existente
         const { data, error } = await supabase
-          .from("invoices")
+          .from("invoices" as never)
           .update({
             ...invoiceData,
             tenant_id: values.tenant_id,
-          })
+          } as never)
           .eq("id", invoiceId)
           .select()
           .single();
@@ -236,11 +261,11 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
       } else {
         // Criar nova nota fiscal
         const { data, error } = await supabase
-          .from("invoices")
+          .from("invoices" as never)
           .insert({
             ...invoiceData,
             tenant_id: values.tenant_id,
-          })
+          } as never)
           .select()
           .single();
 
@@ -428,7 +453,7 @@ export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: Ne
                       </FormControl>
                       <SelectContent>
                         {contracts && contracts.length > 0 ? (
-                          contracts.map((contract: any) => {
+                          contracts.map((contract: ContractRow) => {
                             const cliente = contract.clients?.nome_fantasia || contract.clients?.razao_social || "Contratante não encontrado";
                             return (
                               <SelectItem key={contract.id} value={contract.id}>
