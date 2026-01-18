@@ -58,7 +58,7 @@ export function ContractViewDialog({ open, onOpenChange, contract, onEdit }: Con
         return "Data inválida";
       }
       return format(date, "dd/MM/yyyy", { locale: ptBR });
-    } catch (error) {
+    } catch {
       return "Data inválida";
     }
   };
@@ -72,7 +72,7 @@ export function ContractViewDialog({ open, onOpenChange, contract, onEdit }: Con
         return "Data inválida";
       }
       return format(date, "dd/MM/yyyy 'às' HH:mm", { locale: ptBR });
-    } catch (error) {
+    } catch {
       return "Data inválida";
     }
   };

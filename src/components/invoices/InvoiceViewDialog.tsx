@@ -10,7 +10,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { StatusBadge, getInvoiceStatusVariant, getStatusLabel } from "@/components/ui/status-badge";
-import { Receipt, Building2, Calendar, DollarSign, FileText, Check } from "lucide-react";
+import { Building2, Calendar, DollarSign, FileText, Check } from "lucide-react";
 import { format } from "date-fns";
 import { ptBR } from "date-fns/locale";
 

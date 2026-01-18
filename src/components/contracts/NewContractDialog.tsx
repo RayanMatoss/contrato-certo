@@ -16,7 +16,6 @@ import {
 import {
   Form,
   FormControl,
-  FormDescription,
   FormField,
   FormItem,
   FormLabel,
@@ -34,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Calendar, Building2 } from "lucide-react";
+import { Loader2, Building2 } from "lucide-react";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 
 const contractSchema = z.object({
@@ -67,7 +66,7 @@ interface NewContractDialogProps {
   contractId?: string;
 }
 
-export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: NewContractDialogProps) {
+export function NewContractDialog({ open, onOpenChange, contractId }: NewContractDialogProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = !!contractId;
@@ -216,7 +215,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
         return data;
       }
     },
-    onSuccess: (data) => {
+    onSuccess: () => {
       toast.success(isEditing ? "Contrato atualizado com sucesso!" : "Contrato criado com sucesso!");
       // Invalidar todas as queries de contratos (independente do filtro)
       queryClient.invalidateQueries({ queryKey: ["contracts"] });

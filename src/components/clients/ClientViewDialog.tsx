@@ -9,7 +9,6 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { StatusBadge } from "@/components/ui/status-badge";
 import { Building2, Mail, Phone, MapPin, FileText, Calendar } from "lucide-react";
 import { format } from "date-fns";
@@ -49,7 +48,7 @@ export function ClientViewDialog({ open, onOpenChange, client, onEdit }: ClientV
         return "Data inválida";
       }
       return format(date, "dd/MM/yyyy 'às' HH:mm");
-    } catch (error) {
+    } catch {
       return "Data inválida";
     }
   };

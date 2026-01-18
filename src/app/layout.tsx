@@ -1,25 +1,14 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
-import dynamic from "next/dynamic";
 import "./globals.css";
+import { ClientProviders } from "./client-providers";
 
 const inter = Inter({ subsets: ["latin"] });
 
-// Carregar ClientProviders de forma assíncrona para reduzir o chunk inicial
-const ClientProviders = dynamic(
-  () => import("./client-providers").then((mod) => ({ default: mod.ClientProviders })),
-  {
-    ssr: true,
-    loading: () => (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-center">
-          <div className="mb-4 h-8 w-8 animate-spin rounded-full border-4 border-primary border-t-transparent mx-auto"></div>
-          <p className="text-sm text-muted-foreground">Carregando...</p>
-        </div>
-      </div>
-    ),
-  }
-);
+export const dynamic = 'force-dynamic';
+export const revalidate = 0;
+export const runtime = 'nodejs';
+export const fetchCache = 'force-no-store';
 
 export const metadata: Metadata = {
   title: "Licity",

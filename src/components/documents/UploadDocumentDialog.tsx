@@ -73,7 +73,7 @@ interface UploadDocumentDialogProps {
   tenantId?: string; // Opcional agora, pois pode vir do formulário
 }
 
-export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDocumentDialogProps) {
+export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialogProps) {
   const queryClient = useQueryClient();
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -162,7 +162,7 @@ export function UploadDocumentDialog({ open, onOpenChange, tenantId }: UploadDoc
       const filePath = `${values.tenant_id}/${fileName}`;
 
       // Upload para Supabase Storage
-      const { data: uploadData, error: uploadError } = await supabase.storage
+      const { error: uploadError } = await supabase.storage
         .from("documents" as never)
         .upload(filePath, selectedFile, {
           cacheControl: "3600",

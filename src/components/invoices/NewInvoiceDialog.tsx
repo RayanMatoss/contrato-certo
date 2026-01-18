@@ -94,7 +94,7 @@ interface NewInvoiceDialogProps {
   invoiceId?: string; // Para edição
 }
 
-export function NewInvoiceDialog({ open, onOpenChange, tenantId, invoiceId }: NewInvoiceDialogProps) {
+export function NewInvoiceDialog({ open, onOpenChange, invoiceId }: NewInvoiceDialogProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedContractId, setSelectedContractId] = useState<string>("");

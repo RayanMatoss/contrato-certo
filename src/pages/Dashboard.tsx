@@ -1,3 +1,6 @@
+"use client";
+
+import { useEffect, useState } from "react";
 import { DashboardCards } from "@/components/dashboard/DashboardCards";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { UpcomingTasks } from "@/components/dashboard/UpcomingTasks";
@@ -6,6 +9,15 @@ import { TopClients } from "@/components/dashboard/TopClients";
 import { ExpiringDocuments } from "@/components/dashboard/ExpiringDocuments";
 
 export default function Dashboard() {
+  const [isMounted, setIsMounted] = useState(false);
+
+  useEffect(() => {
+    setIsMounted(true);
+  }, []);
+
+  if (!isMounted) {
+    return null;
+  }
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
       {/* Page Header */}

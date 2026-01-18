@@ -8,14 +8,13 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Plus, Search, Building2, Mail, Phone, MapPin, MoreHorizontal, Eye, Pencil } from "lucide-react";
+import { Plus, Search, Mail, Phone, MapPin, MoreHorizontal, Eye, Pencil } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/use-tenant";
 import { NewClientDialog } from "@/components/clients/NewClientDialog";

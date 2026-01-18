@@ -12,7 +12,6 @@ import {
   Calendar,
   FolderOpen,
   Settings,
-  Building2,
   ChevronDown,
   LogOut,
   Bell,
@@ -30,7 +29,6 @@ import {
   SidebarMenu,
   SidebarMenuButton,
   SidebarMenuItem,
-  SidebarTrigger,
   useSidebar,
 } from "@/components/ui/sidebar";
 import {

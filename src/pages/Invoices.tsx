@@ -21,7 +21,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { StatusBadge, getInvoiceStatusVariant, getStatusLabel } from "@/components/ui/status-badge";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { StatCard } from "@/components/ui/stat-card";
 import { Plus, Search, Filter, MoreHorizontal, Eye, Pencil, Send, Receipt, AlertTriangle, CheckCircle, Clock, RefreshCw, Check } from "lucide-react";
 import {

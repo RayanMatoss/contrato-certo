@@ -59,18 +59,20 @@ export function NewTenantDialog({ open, onOpenChange, tenantId }: NewTenantDialo
   // Buscar tenant para edição
   useEffect(() => {
     if (open && tenantId) {
+      const tableName = "tenants" as never;
       supabase
-        .from("tenants")
+        .from(tableName)
         .select("*")
         .eq("id", tenantId)
         .single()
         .then(({ data, error }) => {
           if (error) throw error;
           if (data) {
+            const tenantData = data as { name?: string; slug?: string; cnpj?: string };
             form.reset({
-              name: data.name || "",
-              slug: data.slug || "",
-              cnpj: data.cnpj || "",
+              name: tenantData.name || "",
+              slug: tenantData.slug || "",
+              cnpj: tenantData.cnpj || "",
             });
           }
         });
@@ -92,14 +94,15 @@ export function NewTenantDialog({ open, onOpenChange, tenantId }: NewTenantDialo
 
       if (tenantId) {
         // Atualizar tenant existente
+        const tableName = "tenants" as never;
         const { data, error } = await supabase
-          .from("tenants")
+          .from(tableName)
           .update({
             name: values.name,
             slug: values.slug,
             cnpj: values.cnpj || null,
             updated_at: new Date().toISOString(),
-          })
+          } as never)
           .eq("id", tenantId)
           .select()
           .single();
@@ -108,30 +111,35 @@ export function NewTenantDialog({ open, onOpenChange, tenantId }: NewTenantDialo
         return data;
       } else {
         // Criar novo tenant
+        const tableName = "tenants" as never;
         const { data: tenantData, error: tenantError } = await supabase
-          .from("tenants")
+          .from(tableName)
           .insert({
             name: values.name,
             slug: values.slug,
             cnpj: values.cnpj || null,
-          })
+          } as never)
           .select()
           .single();
 
         if (tenantError) throw tenantError;
+        if (!tenantData) throw new Error("Erro ao criar empresa");
 
         // Criar membership como admin
+        const typedTenantData = tenantData as { id: string };
+        const membershipTableName = "tenant_memberships" as never;
         const { error: membershipError } = await supabase
-          .from("tenant_memberships")
+          .from(membershipTableName)
           .insert({
-            tenant_id: tenantData.id,
+            tenant_id: typedTenantData.id,
             user_id: user.id,
             role: "admin",
-          });
+          } as never);
 
         if (membershipError) {
           // Se der erro ao criar membership, tentar deletar o tenant
-          await supabase.from("tenants").delete().eq("id", tenantData.id);
+          const deleteTableName = "tenants" as never;
+          await supabase.from(deleteTableName).delete().eq("id", typedTenantData.id);
           throw membershipError;
         }
 

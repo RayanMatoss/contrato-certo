@@ -1,22 +1,20 @@
 "use client";
 
 import { useState } from "react";
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent } from "@/components/ui/card";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { StatusBadge } from "@/components/ui/status-badge";
-import { Plus, Search, Building2, Mail, Phone, MapPin, MoreHorizontal, Eye, Pencil } from "lucide-react";
+import { Plus, Search, Building2, MoreHorizontal, Eye, Pencil } from "lucide-react";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { supabase } from "@/integrations/supabase/client";
-import { useAuth } from "@/hooks/use-auth";
 import { useTenantSelector, TenantWithRole } from "@/hooks/use-tenant-selector";
 import { NewTenantDialog } from "@/components/tenants/NewTenantDialog";
 import { TenantViewDialog } from "@/components/tenants/TenantViewDialog";
@@ -37,7 +35,6 @@ export default function Tenants() {
   const [editingTenantId, setEditingTenantId] = useState<string | undefined>(undefined);
   const [viewingTenant, setViewingTenant] = useState<TenantWithRole | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const { user } = useAuth();
   const { tenants, selectedTenantId, setSelectedTenantId } = useTenantSelector();
   const queryClient = useQueryClient();
 

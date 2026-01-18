@@ -13,7 +13,6 @@ import {
   User,
   Bell,
   Shield,
-  Palette,
   Database,
   Mail,
   Users,

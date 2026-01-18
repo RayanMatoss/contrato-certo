@@ -9,7 +9,7 @@ import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
 import { UploadDocumentDialog } from "@/components/documents/UploadDocumentDialog";
 import { toast } from "sonner";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,40 +36,21 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { 
-  Plus, 
   Search, 
   Filter,
   Upload,
   FolderOpen,
   FileText,
   File,
-  Image,
   FileSpreadsheet,
   MoreHorizontal,
   Download,
-  Eye,
   Trash2,
   Clock,
   AlertTriangle,
   CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-
-type UUID = string;
-
-interface DocumentRow {
-  id: UUID;
-  name: string;
-  type: string;
-  file_path: string;
-  file_size?: number | null;
-  validade?: string | null;
-  tenant_id: UUID;
-  created_at: string;
-  clients?: { razao_social?: string; nome_fantasia?: string } | null;
-  contracts?: { numero?: string } | null;
-  tenants?: { id: UUID; name: string; slug: string } | null;
-}
 
 interface Document {
   id: string;

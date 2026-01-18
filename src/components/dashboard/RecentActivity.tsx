@@ -1,6 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { StatusBadge, getInvoiceStatusVariant, getStatusLabel } from "@/components/ui/status-badge";
-import { FileText, Receipt, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { FileText, Receipt, CheckCircle, Clock } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface Activity {
