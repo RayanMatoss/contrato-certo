@@ -59,13 +59,14 @@ export default function Clients() {
       if (!tenantId) return [];
 
       const { data, error } = await supabase
-        .from("clients")
+        .from("clients" as never)
         .select("*")
         .eq("tenant_id", tenantId)
         .order("razao_social");
 
       if (error) throw error;
-      return data as Client[];
+      const typedData = (data || []) as Client[];
+      return typedData;
     },
     enabled: !!tenantId,
   });

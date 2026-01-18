@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -37,6 +37,28 @@ import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
 
+type UUID = string;
+
+interface ContractRow {
+  id: UUID;
+  numero: string;
+  objeto: string;
+  valor_total: number;
+  valor_mensal?: number | null;
+  data_inicio: string;
+  data_fim: string;
+  status: string;
+  indice_reajuste?: string | null;
+  periodicidade_reajuste?: number | null;
+  responsavel_interno?: string | null;
+  created_at: string;
+  updated_at: string;
+  tenant_id: UUID;
+  client_id: UUID;
+  clients?: { nome_fantasia?: string; razao_social?: string } | null;
+  tenants?: { id: UUID; name: string; slug: string } | null;
+}
+
 interface Contract {
   id: string;
   numero: string;
@@ -65,6 +87,7 @@ export default function Contracts() {
   const [editingContractId, setEditingContractId] = useState<string | undefined>(undefined);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const hasInitializedFilter = useRef(false);
   
   // Obter tenant_id do usuário autenticado e todas as empresas
   const { tenantId, isLoading: loadingTenant } = useTenant();
@@ -72,8 +95,9 @@ export default function Contracts() {
   
   // Inicializar filtro com a empresa selecionada
   useEffect(() => {
-    if (selectedTenantId && tenantFilter === null) {
+    if (selectedTenantId && !hasInitializedFilter.current) {
       setTenantFilter(selectedTenantId);
+      hasInitializedFilter.current = true;
     }
   }, [selectedTenantId]);
 
@@ -89,7 +113,7 @@ export default function Contracts() {
       if (tenantIds.length === 0) return [];
 
       let query = supabase
-        .from("contracts")
+        .from("contracts" as never)
         .select(`
           id,
           numero,
@@ -127,7 +151,8 @@ export default function Contracts() {
 
       if (error) throw error;
 
-      return data?.map((contract: any) => {
+      const typedData = (data || []) as ContractRow[];
+      return typedData.map((contract: ContractRow) => {
         const cliente = contract.clients?.nome_fantasia || contract.clients?.razao_social || "Contratante não encontrado";
         const dataFim = new Date(contract.data_fim);
         const hoje = new Date();
@@ -139,21 +164,21 @@ export default function Contracts() {
           numero: contract.numero,
           cliente,
           objeto: contract.objeto,
-          valorMensal: contract.valor_mensal || contract.valor_total || 0,
+          valorMensal: contract.valor_mensal ?? contract.valor_total ?? 0,
           valorTotal: contract.valor_total,
           dataInicio: contract.data_inicio,
           dataFim: contract.data_fim,
           status: contract.status,
-          indiceReajuste: contract.indice_reajuste,
-          periodicidadeReajuste: contract.periodicidade_reajuste,
-          responsavelInterno: contract.responsavel_interno,
+          indiceReajuste: contract.indice_reajuste ?? null,
+          periodicidadeReajuste: contract.periodicidade_reajuste ?? null,
+          responsavelInterno: contract.responsavel_interno ?? null,
           tenant_id: contract.tenant_id,
           tenantName,
           created_at: contract.created_at,
           updated_at: contract.updated_at,
           diasRestantes: diasRestantes > 0 ? diasRestantes : 0,
         };
-      }) || [];
+      });
     },
     enabled: !loadingTenant && tenants.length > 0,
   });

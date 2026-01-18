@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -24,6 +24,28 @@ import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
 import { NewTaskDialog } from "@/components/tasks/NewTaskDialog";
+
+type UUID = string;
+
+interface TaskRow {
+  id: UUID;
+  title: string;
+  description?: string | null;
+  type: string;
+  status: string;
+  due_date?: string | null;
+  contract_id?: string | null;
+  client_id?: string | null;
+  invoice_id?: string | null;
+  assigned_to?: string | null;
+  created_by: string;
+  completed_at?: string | null;
+  created_at: string;
+  updated_at: string;
+  tenant_id: string;
+  clients?: { razao_social?: string; nome_fantasia?: string | null } | null;
+  tenants?: { id: UUID; name: string; slug: string } | null;
+}
 
 interface Task {
   id: string;
@@ -70,14 +92,16 @@ export default function Calendar() {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("week");
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
+  const hasInitializedFilter = useRef(false);
   
   const { tenantId, isLoading: loadingTenant } = useTenant();
   const { tenants, selectedTenantId } = useTenantSelector();
 
   // Inicializar filtro com a empresa selecionada
   useEffect(() => {
-    if (selectedTenantId && tenantFilter === null) {
+    if (selectedTenantId && !hasInitializedFilter.current) {
       setTenantFilter(selectedTenantId);
+      hasInitializedFilter.current = true;
     }
   }, [selectedTenantId]);
 
@@ -93,7 +117,7 @@ export default function Calendar() {
       if (tenantIds.length === 0) return [];
 
       const { data, error } = await supabase
-        .from("tasks")
+        .from("tasks" as never)
         .select(`
           id,
           title,
@@ -118,15 +142,28 @@ export default function Calendar() {
 
       if (error) throw error;
       
-      return (data || []).map((task: any) => ({
-        ...task,
-        tenantName: task.tenants?.name || "Empresa não encontrada",
-      })) as Task[];
+      const typedData = (data || []) as TaskRow[];
+      return typedData
+        .filter((task): task is TaskRow & { due_date: string } => !!task.due_date)
+        .map((task: TaskRow & { due_date: string }) => ({
+          id: task.id,
+          title: task.title,
+          due_date: task.due_date,
+          type: task.type as Task["type"],
+          status: task.status as Task["status"],
+          description: task.description ?? null,
+          tenant_id: task.tenant_id,
+          tenantName: task.tenants?.name || "Empresa não encontrada",
+          client: task.clients ? {
+            razao_social: task.clients.razao_social || "",
+            nome_fantasia: task.clients.nome_fantasia ?? null,
+          } : null,
+        })) as Task[];
     },
     enabled: !loadingTenant && tenants.length > 0,
   });
 
-  const tasks: Task[] = tasksData || [];
+  const tasks: Task[] = useMemo(() => tasksData || [], [tasksData]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR", {
@@ -135,10 +172,11 @@ export default function Calendar() {
     });
   };
 
-  const getTasksForDate = (targetDate: Date) => {
+  // Função para obter tarefas de uma data específica
+  const getTasksForDate = useCallback((targetDate: Date) => {
     const dateStr = targetDate.toISOString().split("T")[0];
     return tasks.filter((task) => task.due_date === dateStr);
-  };
+  }, [tasks]);
 
   // Filtrar tarefas por período
   const filteredTasks = useMemo(() => {
@@ -179,7 +217,7 @@ export default function Calendar() {
     }
 
     return tasks;
-  }, [tasks, date, activeTab]);
+  }, [tasks, date, activeTab, getTasksForDate]);
 
   return (
     <AppLayout>
