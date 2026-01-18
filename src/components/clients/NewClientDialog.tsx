@@ -75,23 +75,38 @@ export function NewClientDialog({ open, onOpenChange, tenantId, clientId }: NewC
   // Buscar contratante para edição
   useEffect(() => {
     if (open && clientId) {
+      const tableName = "clients" as never;
       supabase
-        .from("clients")
+        .from(tableName)
         .select("*")
         .eq("id", clientId)
         .single()
         .then(({ data, error }) => {
           if (error) throw error;
           if (data) {
+            const clientData = data as {
+              razao_social: string;
+              nome_fantasia?: string;
+              cnpj: string;
+              email?: string;
+              email_cobranca?: string;
+              telefone?: string;
+              endereco?: string;
+              cidade?: string;
+              uf?: string;
+              cep?: string;
+              observacoes?: string;
+              status: string;
+            };
             form.reset({
-              razao_social: data.razao_social || "",
-              nome_fantasia: data.nome_fantasia || "",
-              cnpj: data.cnpj || "",
-              email: data.email || "",
-              telefone: data.telefone || "",
-              cidade: data.cidade || "",
-              uf: data.uf || "",
-              status: (data.status as "ativo" | "inativo") || "ativo",
+              razao_social: clientData.razao_social || "",
+              nome_fantasia: clientData.nome_fantasia || "",
+              cnpj: clientData.cnpj || "",
+              email: clientData.email || "",
+              telefone: clientData.telefone || "",
+              cidade: clientData.cidade || "",
+              uf: clientData.uf || "",
+              status: (clientData.status as "ativo" | "inativo") || "ativo",
             });
           }
         });
@@ -126,9 +141,10 @@ export function NewClientDialog({ open, onOpenChange, tenantId, clientId }: NewC
 
       if (clientId) {
         // Atualizar
+        const tableName = "clients" as never;
         const { data, error } = await supabase
-          .from("clients")
-          .update(clientData)
+          .from(tableName)
+          .update(clientData as never)
           .eq("id", clientId)
           .select()
           .single();
@@ -137,9 +153,10 @@ export function NewClientDialog({ open, onOpenChange, tenantId, clientId }: NewC
         return data;
       } else {
         // Criar
+        const tableName = "clients" as never;
         const { data, error } = await supabase
-          .from("clients")
-          .insert(clientData)
+          .from(tableName)
+          .insert(clientData as never)
           .select()
           .single();
 
