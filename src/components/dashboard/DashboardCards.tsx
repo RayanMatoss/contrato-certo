@@ -24,12 +24,13 @@ export function DashboardCards() {
     queryFn: async () => {
       if (!tenantId) return null;
 
-      const { data, error } = await supabase.rpc("get_dashboard_metrics", {
+      const functionName = "get_dashboard_metrics" as never;
+      const { data, error } = await supabase.rpc(functionName, {
         p_tenant_id: tenantId,
-      });
+      } as never);
 
       if (error) throw error;
-      return data?.[0] as DashboardMetrics | undefined;
+      return (data && data[0]) as DashboardMetrics | undefined;
     },
     enabled: !!tenantId,
   });
@@ -41,7 +42,7 @@ export function DashboardCards() {
       if (!tenantId) return 0;
 
       const { count, error } = await supabase
-        .from("tasks")
+        .from("tasks" as never)
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .in("status", ["pendente", "em_andamento"]);
@@ -62,7 +63,7 @@ export function DashboardCards() {
       const currentYear = new Date().getFullYear();
 
       const { count, error } = await supabase
-        .from("invoices")
+        .from("invoices" as never)
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .eq("competencia", `${currentYear}-${String(currentMonth).padStart(2, "0")}`)
