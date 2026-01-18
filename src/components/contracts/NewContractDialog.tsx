@@ -72,6 +72,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const isEditing = !!contractId;
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
+  const tenantsArray = Array.isArray(tenants) ? tenants : [];
 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
@@ -87,8 +88,9 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
     queryFn: async () => {
       if (!contractId) return null;
       
+      const tableName = "contracts" as never;
       const { data, error } = await supabase
-        .from("contracts")
+        .from(tableName)
         .select("*")
         .eq("id", contractId)
         .single();
@@ -110,18 +112,32 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
         }).format(value);
       };
 
+      const typedContractData = contractData as {
+        tenant_id: string;
+        client_id: string;
+        numero: string;
+        objeto: string;
+        valor_total: number;
+        valor_mensal?: number;
+        data_inicio: string;
+        data_fim: string;
+        status: string;
+        periodicidade_reajuste?: number;
+        responsavel_interno?: string;
+      };
+
       form.reset({
-        tenant_id: contractData.tenant_id,
-        client_id: contractData.client_id,
-        numero: contractData.numero,
-        objeto: contractData.objeto,
-        valor_total: formatCurrency(contractData.valor_total),
-        valor_mensal: formatCurrency(contractData.valor_mensal),
-        data_inicio: contractData.data_inicio?.split("T")[0] || "",
-        data_fim: contractData.data_fim?.split("T")[0] || "",
-        status: contractData.status,
-        periodicidade_reajuste: contractData.periodicidade_reajuste?.toString() || undefined,
-        responsavel_interno: contractData.responsavel_interno || undefined,
+        tenant_id: typedContractData.tenant_id,
+        client_id: typedContractData.client_id,
+        numero: typedContractData.numero,
+        objeto: typedContractData.objeto,
+        valor_total: formatCurrency(typedContractData.valor_total),
+        valor_mensal: formatCurrency(typedContractData.valor_mensal),
+        data_inicio: typedContractData.data_inicio?.split("T")[0] || "",
+        data_fim: typedContractData.data_fim?.split("T")[0] || "",
+        status: typedContractData.status as "rascunho" | "ativo" | "suspenso" | "encerrado" | "cancelado",
+        periodicidade_reajuste: typedContractData.periodicidade_reajuste?.toString() || undefined,
+        responsavel_interno: typedContractData.responsavel_interno || undefined,
       });
     }
   }, [contractData, isEditing, form]);
@@ -138,7 +154,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
       }
       
       const { data, error } = await supabase
-        .from("clients")
+        .from("clients" as never)
         .select("id, razao_social, nome_fantasia")
         .eq("tenant_id", selectedTenantId)
         .eq("status", "ativo")
@@ -177,9 +193,10 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
 
       if (isEditing && contractId) {
         // Atualizar contrato existente
+        const tableName = "contracts" as never;
         const { data, error } = await supabase
-          .from("contracts")
-          .update(contractData)
+          .from(tableName)
+          .update(contractData as never)
           .eq("id", contractId)
           .select()
           .single();
@@ -188,9 +205,10 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
         return data;
       } else {
         // Criar novo contrato
+        const tableName = "contracts" as never;
         const { data, error } = await supabase
-          .from("contracts")
-          .insert(contractData)
+          .from(tableName)
+          .insert(contractData as never)
           .select()
           .single();
 
@@ -232,7 +250,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
         tenant_id: currentTenantId || "",
       });
     }
-  }, [open, form, isEditing, selectedTenantId]);
+  }, [open, form, isEditing, selectedTenantId, currentTenantId]);
 
   // Atualizar tenant_id quando currentTenantId mudar (se não estiver editando)
   useEffect(() => {
@@ -242,7 +260,7 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
   }, [currentTenantId, isEditing, form]);
 
   // Se não houver empresas disponíveis, mostrar mensagem
-  if (tenants.length === 0) {
+  if (tenantsArray.length === 0) {
     return (
       <Dialog open={open} onOpenChange={onOpenChange}>
         <DialogContent className="max-w-md">
@@ -461,17 +479,17 @@ export function NewContractDialog({ open, onOpenChange, tenantId, contractId }: 
                         form.setValue("client_id", "");
                       }} 
                       value={field.value}
-                      disabled={tenants.length === 0}
+                      disabled={tenantsArray.length === 0}
                     >
                       <FormControl>
                         <SelectTrigger>
                           <SelectValue placeholder="Selecione uma empresa">
-                            {field.value && tenants.find((t) => t.id === field.value)?.name}
+                            {field.value && tenantsArray.find((t) => t.id === field.value)?.name}
                           </SelectValue>
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
-                        {tenants.map((tenant) => (
+                          {tenantsArray.map((tenant) => (
                           <SelectItem key={tenant.id} value={tenant.id}>
                             <div className="flex items-center gap-2">
                               <Building2 className="h-4 w-4 text-muted-foreground" />
