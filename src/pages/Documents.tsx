@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect } from "react";
+import { useState, useMemo, useEffect, useRef } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
@@ -54,6 +54,22 @@ import {
   CheckCircle
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+
+type UUID = string;
+
+interface DocumentRow {
+  id: UUID;
+  name: string;
+  type: string;
+  file_path: string;
+  file_size?: number | null;
+  validade?: string | null;
+  tenant_id: UUID;
+  created_at: string;
+  clients?: { razao_social?: string; nome_fantasia?: string } | null;
+  contracts?: { numero?: string } | null;
+  tenants?: { id: UUID; name: string; slug: string } | null;
+}
 
 interface Document {
   id: string;
@@ -127,6 +143,7 @@ export default function Documents() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const hasInitializedFilter = useRef(false);
   
   const { tenantId, isLoading: loadingTenant } = useTenant();
   const { tenants, selectedTenantId } = useTenantSelector();
@@ -134,8 +151,9 @@ export default function Documents() {
 
   // Inicializar filtro com a empresa selecionada
   useEffect(() => {
-    if (selectedTenantId && tenantFilter === null) {
+    if (selectedTenantId && !hasInitializedFilter.current) {
       setTenantFilter(selectedTenantId);
+      hasInitializedFilter.current = true;
     }
   }, [selectedTenantId]);
 
@@ -151,7 +169,7 @@ export default function Documents() {
       if (tenantIds.length === 0) return [];
 
       const { data, error } = await supabase
-        .from("documents")
+        .from("documents" as never)
         .select(`
           id,
           name,
@@ -179,7 +197,19 @@ export default function Documents() {
 
       if (error) throw error;
       
-      return (data || []).map((doc: any) => ({
+      return (data || []).map((doc: {
+        id: string;
+        name: string;
+        type: string;
+        file_path: string;
+        file_size?: number;
+        validade?: string;
+        tenant_id: string;
+        created_at: string;
+        clients?: { razao_social?: string; nome_fantasia?: string } | null;
+        contracts?: { numero?: string } | null;
+        tenants?: { id: string; name: string; slug: string } | null;
+      }) => ({
         ...doc,
         tenantName: doc.tenants?.name || "Empresa não encontrada",
       })) as Document[];
@@ -187,7 +217,9 @@ export default function Documents() {
     enabled: !loadingTenant && tenants.length > 0,
   });
 
-  const documents: Document[] = documentsData || [];
+  const documents: Document[] = useMemo(() => {
+    return documentsData || [];
+  }, [documentsData]);
 
   // Calcular status dos documentos
   const getDocumentStatus = (validade: string | null): "valido" | "expirando" | "expirado" => {
@@ -234,7 +266,7 @@ export default function Documents() {
     mutationFn: async (documentId: string) => {
       // Buscar o documento para obter o file_path
       const { data: doc, error: fetchError } = await supabase
-        .from("documents")
+        .from("documents" as never)
         .select("file_path")
         .eq("id", documentId)
         .single();
@@ -242,17 +274,18 @@ export default function Documents() {
       if (fetchError) throw fetchError;
 
       // Deletar do storage
-      if (doc?.file_path) {
+      const typedDoc = doc as { file_path?: string } | null;
+      if (typedDoc?.file_path) {
         const { error: storageError } = await supabase.storage
-          .from("documents")
-          .remove([doc.file_path]);
+          .from("documents" as never)
+          .remove([typedDoc.file_path]);
 
         if (storageError) throw storageError;
       }
 
       // Deletar do banco
       const { error } = await supabase
-        .from("documents")
+        .from("documents" as never)
         .delete()
         .eq("id", documentId);
 
@@ -271,10 +304,11 @@ export default function Documents() {
   const handleDownload = async (filePath: string, fileName: string) => {
     try {
       const { data, error } = await supabase.storage
-        .from("documents")
+        .from("documents" as never)
         .download(filePath);
 
       if (error) throw error;
+      if (!data) throw new Error("Arquivo não encontrado");
 
       const url = URL.createObjectURL(data);
       const a = document.createElement("a");
@@ -284,8 +318,9 @@ export default function Documents() {
       a.click();
       document.body.removeChild(a);
       URL.revokeObjectURL(url);
-    } catch (error: any) {
-      toast.error(`Erro ao baixar documento: ${error.message}`);
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : "Erro desconhecido";
+      toast.error(`Erro ao baixar documento: ${errorMessage}`);
     }
   };
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -41,6 +41,25 @@ import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
+type UUID = string;
+
+interface InvoiceRow {
+  id: UUID;
+  numero_nf?: string | null;
+  competencia: string;
+  data_vencimento: string;
+  valor_bruto: number;
+  valor_impostos?: number | null;
+  valor_liquido: number;
+  status: string;
+  contract_id: string;
+  client_id: string;
+  tenant_id: string;
+  clients?: { razao_social?: string; nome_fantasia?: string } | null;
+  contracts?: { numero?: string } | null;
+  tenants?: { id: UUID; name: string; slug: string } | null;
+}
+
 interface Invoice {
   id: string;
   numeroNf: string | null;
@@ -63,6 +82,7 @@ export default function Invoices() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined);
+  const hasInitializedFilter = useRef(false);
   
   const { tenantId, isLoading: loadingTenant } = useTenant();
   const { tenants, selectedTenantId } = useTenantSelector();
@@ -70,8 +90,9 @@ export default function Invoices() {
 
   // Inicializar filtro com a empresa selecionada
   useEffect(() => {
-    if (selectedTenantId && tenantFilter === null) {
+    if (selectedTenantId && !hasInitializedFilter.current) {
       setTenantFilter(selectedTenantId);
+      hasInitializedFilter.current = true;
     }
   }, [selectedTenantId]);
 
@@ -79,8 +100,8 @@ export default function Invoices() {
   const markAsPaid = useMutation({
     mutationFn: async (invoiceId: string) => {
       const { data, error } = await supabase
-        .from("invoices")
-        .update({ status: "paga" })
+        .from("invoices" as never)
+        .update({ status: "paga" } as never)
         .eq("id", invoiceId)
         .select()
         .single();
@@ -109,7 +130,7 @@ export default function Invoices() {
       if (tenantIds.length === 0) return [];
 
       let query = supabase
-        .from("invoices")
+        .from("invoices" as never)
         .select(`
           id,
           numero_nf,
@@ -141,12 +162,13 @@ export default function Invoices() {
 
       if (error) throw error;
 
-      return data?.map((invoice: any) => {
+      const typedData = (data || []) as InvoiceRow[];
+      return typedData.map((invoice: InvoiceRow) => {
         const cliente = invoice.clients?.nome_fantasia || invoice.clients?.razao_social || "Contratante não encontrado";
         const tenantName = invoice.tenants?.name || "Empresa não encontrada";
         return {
           id: invoice.id,
-          numeroNf: invoice.numero_nf,
+          numeroNf: invoice.numero_nf ?? null,
           cliente,
           competencia: invoice.competencia,
           dataVencimento: invoice.data_vencimento,
@@ -156,7 +178,7 @@ export default function Invoices() {
           tenant_id: invoice.tenant_id,
           tenantName,
         };
-      }) || [];
+      });
     },
     enabled: !loadingTenant && tenants.length > 0,
   });
@@ -170,7 +192,7 @@ export default function Invoices() {
       if (!viewingInvoice?.id) return null;
       
       const { data, error } = await supabase
-        .from("invoices")
+        .from("invoices" as never)
         .select(`
           *,
           clients:client_id (
@@ -754,7 +776,7 @@ export default function Invoices() {
         <InvoiceViewDialog
           open={isViewDialogOpen}
           onOpenChange={setIsViewDialogOpen}
-          invoice={fullInvoiceData as any}
+          invoice={fullInvoiceData || undefined}
           onEdit={() => {
             if (viewingInvoice) {
               setEditingInvoiceId(viewingInvoice.id);
