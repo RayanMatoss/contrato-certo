@@ -112,8 +112,9 @@ export function AppSidebar() {
     queryKey: ["sidebar-contracts-count", tenantId],
     queryFn: async () => {
       if (!tenantId) return 0;
+      const tableName = "contracts" as never;
       const { count } = await supabase
-        .from("contracts")
+        .from(tableName)
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .eq("status", "ativo")
@@ -128,8 +129,9 @@ export function AppSidebar() {
     queryKey: ["sidebar-invoices-count", tenantId],
     queryFn: async () => {
       if (!tenantId) return 0;
+      const tableName = "invoices" as never;
       const { count } = await supabase
-        .from("invoices")
+        .from(tableName)
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .eq("status", "a_emitir");
@@ -142,8 +144,9 @@ export function AppSidebar() {
     queryKey: ["sidebar-tasks-count", tenantId],
     queryFn: async () => {
       if (!tenantId) return 0;
+      const tableName = "tasks" as never;
       const { count } = await supabase
-        .from("tasks")
+        .from(tableName)
         .select("*", { count: "exact", head: true })
         .eq("tenant_id", tenantId)
         .in("status", ["pendente", "em_andamento"]);
@@ -157,8 +160,9 @@ export function AppSidebar() {
     queryKey: ["user-data", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
+      const tableName = "users" as never;
       const { data } = await supabase
-        .from("users")
+        .from(tableName)
         .select("full_name")
         .eq("id", user.id)
         .single();
@@ -182,8 +186,9 @@ export function AppSidebar() {
   };
 
   const getUserInitials = () => {
-    if (userData?.full_name) {
-      return userData.full_name
+    const typedUserData = userData as { full_name?: string } | null;
+    if (typedUserData && typedUserData.full_name) {
+      return typedUserData.full_name
         .split(" ")
         .slice(0, 2)
         .map((n) => n[0])
@@ -197,7 +202,8 @@ export function AppSidebar() {
   };
 
   const getUserName = () => {
-    return userData?.full_name || user?.email?.split("@")[0] || "Usuário";
+    const typedUserData = userData as { full_name?: string } | null;
+    return typedUserData?.full_name || user?.email?.split("@")[0] || "Usuário";
   };
 
   const handleLogout = async () => {
