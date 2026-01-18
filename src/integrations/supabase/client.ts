@@ -14,16 +14,22 @@ const SUPABASE_PUBLISHABLE_KEY =
   '';
 
 // Validação com mensagem de erro mais clara
+// Durante o build do Next.js, as variáveis NEXT_PUBLIC_* devem estar disponíveis
+// Se não estiverem, o build falhará, mas isso é esperado - as variáveis devem ser configuradas
 if (!SUPABASE_URL) {
   console.error('❌ Erro: NEXT_PUBLIC_SUPABASE_URL ou VITE_SUPABASE_URL não encontrada');
-  console.error('📝 Crie um arquivo .env.local com: NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co');
+  console.error('📝 Configure a variável de ambiente NEXT_PUBLIC_SUPABASE_URL na Vercel');
+  console.error('📝 Vá em: Vercel Dashboard > Settings > Environment Variables');
+  console.error('📝 Adicione: NEXT_PUBLIC_SUPABASE_URL=https://seu-projeto.supabase.co');
   throw new Error('Missing env.NEXT_PUBLIC_SUPABASE_URL or env.VITE_SUPABASE_URL');
 }
 
 if (!SUPABASE_PUBLISHABLE_KEY || SUPABASE_PUBLISHABLE_KEY.startsWith('http')) {
   console.error('❌ Erro: NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY não encontrada ou inválida');
   console.error('📝 A chave deve ser a "anon public" key do Supabase, não a URL!');
-  console.error('📝 Encontre em: Supabase Dashboard > Settings > API > Project API keys > anon public');
+  console.error('📝 Configure a variável de ambiente NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY na Vercel');
+  console.error('📝 Vá em: Vercel Dashboard > Settings > Environment Variables');
+  console.error('📝 Encontre a chave em: Supabase Dashboard > Settings > API > Project API keys > anon public');
   throw new Error('Missing or invalid env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY. Should be the anon public key, not the URL.');
 }
 
