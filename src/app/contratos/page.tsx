@@ -7,11 +7,6 @@ const Contracts = dynamicImport(() => import("@/pages/Contracts"), {
   ssr: false,
 });
 
-export const dynamic = 'force-dynamic';
-export const revalidate = 0;
-export const runtime = 'nodejs';
-export const fetchCache = 'force-no-store';
-
 export default function ContratosPage() {
   return (
     <AuthGuard>

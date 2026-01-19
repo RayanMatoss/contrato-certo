@@ -55,10 +55,51 @@ Após adicionar as variáveis:
 - Não use a **service_role key** - ela é privada e não deve ser exposta no frontend
 - Certifique-se de marcar todas as environments (Production, Preview, Development)
 
+## ⚠️ Erro: Diretório de Saída "dist" Não Encontrado
+
+Se você está vendo este erro após corrigir as variáveis de ambiente:
+
+```
+Error: No Output Directory named "dist" found after the Build completed.
+```
+
+Isso acontece quando o Vercel está configurado incorretamente como **Vite** (que usa "dist") em vez de **Next.js** (que usa ".next").
+
+### Solução Passo a Passo
+
+1. **Acesse as Configurações do Framework:**
+   - Vá para https://vercel.com/dashboard
+   - Selecione seu projeto
+   - Vá em **Settings** > **General**
+   - Role até a seção **Framework Settings**
+
+2. **Altere o Framework Preset:**
+   - No campo **Framework Preset**, você verá que está configurado como **"Vite"**
+   - Clique no dropdown e selecione **"Next.js"**
+   - Isso automaticamente atualizará:
+     - **Build Command**: para `npm run build` (ou vazio para usar o padrão)
+     - **Output Directory**: será removido/vazio (Next.js usa `.next` automaticamente)
+     - **Development Command**: para `next dev`
+
+3. **Salve as Alterações:**
+   - Clique no botão **"Save"** no canto inferior direito
+   - Aguarde a confirmação de que as configurações foram salvas
+
+4. **Faça um Novo Deploy:**
+   - Vá em **Deployments**
+   - Clique nos três pontos (...) do último deployment
+   - Selecione **Redeploy**
+   - Ou faça um novo push para o repositório
+
+### Nota sobre vercel.json
+
+O arquivo `vercel.json` foi criado no projeto para ajudar na configuração, mas a correção principal deve ser feita no Dashboard da Vercel alterando o Framework Preset de "Vite" para "Next.js".
+
 ## 🔍 Verificação
 
 Após configurar, o build deve passar sem erros. Se ainda houver problemas:
 
 1. Verifique se as variáveis estão escritas corretamente (case-sensitive)
 2. Verifique se todas as environments estão marcadas
-3. Faça um redeploy após adicionar as variáveis
+3. Verifique se o Framework Preset está configurado como Next.js
+4. Faça um redeploy após adicionar as variáveis ou alterar configurações
