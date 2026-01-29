@@ -20,7 +20,14 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      create_tenant: {
+        Args: {
+          p_name: string
+          p_slug: string
+          p_cnpj?: string | null
+        }
+        Returns: unknown
+      }
     }
     Enums: {
       [_ in never]: never
