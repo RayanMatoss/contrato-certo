@@ -200,7 +200,7 @@ export default function Contracts() {
 
   return (
     <AppLayout>
-      <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
+      <div className="min-w-0 overflow-x-hidden p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
         {/* Page Header */}
         <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
@@ -259,69 +259,68 @@ export default function Contracts() {
           </CardContent>
         </Card>
 
-        {/* Contracts Table */}
+        {/* Contracts Table - table-fixed para caber na tela sem scroll horizontal */}
         {!isLoading && filteredContracts.length > 0 && (
           <Card>
-            <CardContent className="p-0 overflow-x-auto">
-              <div className="min-w-[640px]">
-                <Table>
+            <CardContent className="p-0 overflow-hidden">
+              <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[120px]">Número</TableHead>
-                    <TableHead>Contratante</TableHead>
-                    <TableHead className="hidden md:table-cell">Empresa</TableHead>
-                    <TableHead className="hidden lg:table-cell">Objeto</TableHead>
-                    <TableHead className="text-right">Valor Mensal</TableHead>
-                    <TableHead className="hidden md:table-cell">Vigência</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead className="w-[50px]"></TableHead>
+                    <TableHead className="w-[12%] min-w-0">Número</TableHead>
+                    <TableHead className="w-[16%] min-w-0">Contratante</TableHead>
+                    <TableHead className="hidden w-[12%] min-w-0 md:table-cell">Empresa</TableHead>
+                    <TableHead className="hidden w-[18%] min-w-0 xl:table-cell">Objeto</TableHead>
+                    <TableHead className="w-[10%] min-w-0 text-right">Valor</TableHead>
+                    <TableHead className="hidden w-[12%] min-w-0 md:table-cell">Vigência</TableHead>
+                    <TableHead className="w-[8%] min-w-0">Status</TableHead>
+                    <TableHead className="w-[12%] min-w-0"></TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredContracts.map((contract) => (
                   <TableRow key={contract.id} className="cursor-pointer">
-                    <TableCell className="font-medium">
-                      <div className="flex items-center gap-2">
-                        <FileText className="h-4 w-4 text-muted-foreground" />
-                        {contract.numero}
+                    <TableCell className="min-w-0 font-medium">
+                      <div className="flex items-center gap-1.5 truncate">
+                        <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span className="truncate">{contract.numero}</span>
                       </div>
                     </TableCell>
-                    <TableCell>
-                      <div className="max-w-[200px] truncate">{contract.cliente}</div>
+                    <TableCell className="min-w-0">
+                      <div className="truncate" title={contract.cliente}>{contract.cliente}</div>
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="max-w-[150px] truncate text-sm">
+                    <TableCell className="hidden min-w-0 md:table-cell">
+                      <div className="truncate text-sm" title={contract.tenantName || undefined}>
                         {contract.tenantName || "N/A"}
                       </div>
                     </TableCell>
-                    <TableCell className="hidden lg:table-cell">
-                      <div className="max-w-[250px] truncate text-muted-foreground">
+                    <TableCell className="hidden min-w-0 xl:table-cell">
+                      <div className="truncate text-muted-foreground" title={contract.objeto}>
                         {contract.objeto}
                       </div>
                     </TableCell>
-                    <TableCell className="text-right font-medium">
+                    <TableCell className="min-w-0 text-right font-medium whitespace-nowrap">
                       {formatCurrency(contract.valorMensal)}
                     </TableCell>
-                    <TableCell className="hidden md:table-cell">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm">
-                          {formatDate(contract.dataInicio)} - {formatDate(contract.dataFim)}
+                    <TableCell className="hidden min-w-0 md:table-cell">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <span className="text-sm whitespace-nowrap">
+                          {formatDate(contract.dataInicio)} – {formatDate(contract.dataFim)}
                         </span>
                         {contract.status === "ativo" && contract.diasRestantes <= 30 && (
-                          <Badge variant="outline" className="text-warning border-warning/20 text-xs">
-                            <Calendar className="h-3 w-3 mr-1" />
+                          <Badge variant="outline" className="text-warning border-warning/20 text-xs shrink-0">
+                            <Calendar className="h-3 w-3 mr-0.5" />
                             {contract.diasRestantes}d
                           </Badge>
                         )}
                       </div>
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="min-w-0">
                       <StatusBadge
                         label={getStatusLabel(contract.status)}
                         variant={getContractStatusVariant(contract.status)}
                       />
                     </TableCell>
-                    <TableCell>
+                    <TableCell className="shrink-0 p-1">
                       <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button variant="ghost" size="icon" className="h-8 w-8">
