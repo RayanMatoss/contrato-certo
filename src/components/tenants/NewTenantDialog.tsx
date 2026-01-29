@@ -110,40 +110,20 @@ export function NewTenantDialog({ open, onOpenChange, tenantId }: NewTenantDialo
         if (error) throw error;
         return data;
       } else {
-        // Criar novo tenant
-        const tableName = "tenants" as never;
-        const { data: tenantData, error: tenantError } = await supabase
-          .from(tableName)
-          .insert({
-            name: values.name,
-            slug: values.slug,
-            cnpj: values.cnpj || null,
-          } as never)
-          .select()
-          .single();
+        // Criar novo tenant via RPC (função no banco bypassa RLS = solução definitiva)
+        const { data: tenantData, error: tenantError } = await supabase.rpc(
+          "create_tenant",
+          {
+            p_name: values.name,
+            p_slug: values.slug,
+            p_cnpj: values.cnpj || null,
+          }
+        );
 
         if (tenantError) throw tenantError;
-        if (!tenantData) throw new Error("Erro ao criar empresa");
-
-        // Criar membership como admin
-        const typedTenantData = tenantData as { id: string };
-        const membershipTableName = "tenant_memberships" as never;
-        const { error: membershipError } = await supabase
-          .from(membershipTableName)
-          .insert({
-            tenant_id: typedTenantData.id,
-            user_id: user.id,
-            role: "admin",
-          } as never);
-
-        if (membershipError) {
-          // Se der erro ao criar membership, tentar deletar o tenant
-          const deleteTableName = "tenants" as never;
-          await supabase.from(deleteTableName).delete().eq("id", typedTenantData.id);
-          throw membershipError;
-        }
-
-        return tenantData;
+        const tenant = Array.isArray(tenantData) ? tenantData[0] : tenantData;
+        if (!tenant) throw new Error("Erro ao criar empresa");
+        return tenant;
       }
     },
     onSuccess: () => {

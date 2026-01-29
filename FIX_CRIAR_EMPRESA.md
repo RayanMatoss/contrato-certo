@@ -21,28 +21,31 @@ Podem ocorrer dois tipos de violação de RLS:
 1. **Tabela `tenants`** – Em produção, a política de INSERT pode não estar ativa (migrations não aplicadas ou projeto Supabase diferente). O erro aparece como: *"new row violates row-level security policy for table **tenants**"*.
 2. **Tabela `tenant_memberships`** – A política de INSERT exige que o usuário já seja admin de um tenant. Isso gera um “ovo e galinha”: para criar o primeiro tenant é preciso criar o membership, mas para criar membership era preciso ser admin de um tenant já existente.
 
-## ✅ Solução (aplicar no Supabase de produção)
+## ✅ Solução definitiva (migration 010)
 
-Execute as migrations no **mesmo projeto Supabase** que a aplicação em produção (Vercel) usa.
+A aplicação **não insere mais direto na tabela `tenants`**. Ela chama a função **`create_tenant`** no banco, que cria o tenant e o membership em uma única operação com privilégios elevados (bypassa RLS). Assim o erro de RLS deixa de ocorrer.
 
-### Passo a passo
+### O que fazer no Supabase de produção (uma vez)
 
 1. **Acesse o Dashboard do Supabase**
-   - Vá para https://supabase.com/dashboard
-   - Selecione o **projeto usado em produção** (o mesmo das variáveis `NEXT_PUBLIC_SUPABASE_*` na Vercel)
+   - https://supabase.com/dashboard → selecione o **projeto usado em produção** (o mesmo das variáveis na Vercel).
 
-2. **Abra o SQL Editor**
-   - No menu lateral, clique em **SQL Editor**
+2. **SQL Editor**
+   - No menu lateral: **SQL Editor**.
 
-3. **Execute as migrations nesta ordem**
-   - **Primeiro:** copie todo o conteúdo de `supabase/migrations/009_fix_tenants_insert_rls.sql` → cole no SQL Editor → **Run**.  
-     Isso garante que usuários autenticados possam inserir em `tenants` (criar empresa).
-   - **Depois:** copie todo o conteúdo de `supabase/migrations/007_fix_tenant_creation_rls.sql` → cole no SQL Editor → **Run**.  
-     Isso permite criar o membership próprio e ajusta o SELECT em `tenants`.
+3. **Rodar a migration 010**
+   - Copie **todo** o conteúdo de `supabase/migrations/010_create_tenant_function.sql`.
+   - Cole no SQL Editor e clique em **Run**.
 
-4. **Teste**
-   - Tente criar uma nova empresa novamente na aplicação publicada.
-   - O erro não deve mais aparecer.
+4. **Testar**
+   - Na aplicação publicada, tente criar uma nova empresa. O fluxo deve funcionar sem erro de RLS.
+
+### Se ainda aparecer erro
+
+Se o 403 continuar, execute também (no mesmo projeto):
+
+- `supabase/migrations/009_fix_tenants_insert_rls.sql` (política INSERT em `tenants`).
+- `supabase/migrations/007_fix_tenant_creation_rls.sql` (membership e SELECT em `tenants`).
 
 ## 📝 Conteúdo da Migration
 
@@ -73,11 +76,12 @@ A política é segura porque:
 
 ## 📚 Migrations Relacionadas
 
-- **009** – Garante a política de INSERT na tabela `tenants` (resolve o 403 ao criar empresa, comum após deploy).
-- **007** – Permite criar o próprio membership e ajusta SELECT em `tenants` (criação da primeira empresa).
+- **010 (solução definitiva)** – Cria a função `create_tenant`. A app chama essa RPC em vez de inserir em `tenants`; a função roda com `SECURITY DEFINER` e não depende de RLS.
+- **009** – Política INSERT em `tenants` (fallback se não usar a RPC).
+- **007** – Membership próprio e SELECT em `tenants`.
 
 Devem estar aplicadas antes: `001`, `002`, `003`, `004`, e opcionalmente `005`, `006`.
 
 ## ⚠️ Nota
 
-As migrations 007 e 009 podem ser aplicadas a qualquer momento no projeto Supabase de produção. Elas apenas recriam/ajustam políticas RLS para permitir a criação do primeiro tenant (empresa).
+Depois de aplicar a **010** no Supabase de produção, a criação de empresa passa a usar a função `create_tenant` e deixa de depender das políticas RLS para INSERT em `tenants` e `tenant_memberships`.
