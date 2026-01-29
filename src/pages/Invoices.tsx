@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -36,8 +36,10 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
-import { NewInvoiceDialog } from "@/components/invoices/NewInvoiceDialog";
-import { InvoiceViewDialog } from "@/components/invoices/InvoiceViewDialog";
+// Dynamic imports para reduzir bundle inicial - dialogs só carregam quando necessários
+import dynamic from "next/dynamic";
+const NewInvoiceDialog = dynamic(() => import("@/components/invoices/NewInvoiceDialog").then(mod => ({ default: mod.NewInvoiceDialog })), { ssr: false });
+const InvoiceViewDialog = dynamic(() => import("@/components/invoices/InvoiceViewDialog").then(mod => ({ default: mod.InvoiceViewDialog })), { ssr: false });
 import { toast } from "sonner";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 
@@ -82,19 +84,10 @@ export default function Invoices() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [viewingInvoice, setViewingInvoice] = useState<Invoice | null>(null);
   const [editingInvoiceId, setEditingInvoiceId] = useState<string | undefined>(undefined);
-  const hasInitializedFilter = useRef(false);
-  
-  const { tenantId, isLoading: loadingTenant } = useTenant();
-  const { tenants, selectedTenantId } = useTenantSelector();
-  const queryClient = useQueryClient();
 
-  // Inicializar filtro com a empresa selecionada
-  useEffect(() => {
-    if (selectedTenantId && !hasInitializedFilter.current) {
-      setTenantFilter(selectedTenantId);
-      hasInitializedFilter.current = true;
-    }
-  }, [selectedTenantId]);
+  const { tenantId, isLoading: loadingTenant } = useTenant();
+  const { tenants } = useTenantSelector();
+  const queryClient = useQueryClient();
 
   // Mutation para marcar nota fiscal como paga
   const markAsPaid = useMutation({
@@ -772,38 +765,42 @@ export default function Invoices() {
           </TabsContent>
         </Tabs>
 
-        {/* View Invoice Dialog */}
-        <InvoiceViewDialog
-          open={isViewDialogOpen}
-          onOpenChange={setIsViewDialogOpen}
-          invoice={fullInvoiceData || undefined}
-          onEdit={() => {
-            if (viewingInvoice) {
-              setEditingInvoiceId(viewingInvoice.id);
-              setIsViewDialogOpen(false);
-              setIsNewInvoiceOpen(true);
-            }
-          }}
-          onMarkAsPaid={() => {
-            if (viewingInvoice) {
-              markAsPaid.mutate(viewingInvoice.id);
-              setIsViewDialogOpen(false);
-            }
-          }}
-        />
+        {/* View Invoice Dialog - Defer: só renderiza quando aberto */}
+        {isViewDialogOpen && (
+          <InvoiceViewDialog
+            open={isViewDialogOpen}
+            onOpenChange={setIsViewDialogOpen}
+            invoice={fullInvoiceData || undefined}
+            onEdit={() => {
+              if (viewingInvoice) {
+                setEditingInvoiceId(viewingInvoice.id);
+                setIsViewDialogOpen(false);
+                setIsNewInvoiceOpen(true);
+              }
+            }}
+            onMarkAsPaid={() => {
+              if (viewingInvoice) {
+                markAsPaid.mutate(viewingInvoice.id);
+                setIsViewDialogOpen(false);
+              }
+            }}
+          />
+        )}
 
-        {/* New/Edit Invoice Dialog */}
-        <NewInvoiceDialog
-          open={isNewInvoiceOpen}
-          onOpenChange={(open) => {
-            setIsNewInvoiceOpen(open);
-            if (!open) {
-              setEditingInvoiceId(undefined);
-            }
-          }}
-          tenantId={tenantId}
-          invoiceId={editingInvoiceId}
-        />
+        {/* New/Edit Invoice Dialog - Defer: só renderiza quando aberto */}
+        {isNewInvoiceOpen && (
+          <NewInvoiceDialog
+            open={isNewInvoiceOpen}
+            onOpenChange={(open) => {
+              setIsNewInvoiceOpen(open);
+              if (!open) {
+                setEditingInvoiceId(undefined);
+              }
+            }}
+            tenantId={tenantId}
+            invoiceId={editingInvoiceId}
+          />
+        )}
       </div>
     </AppLayout>
   );

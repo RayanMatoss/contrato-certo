@@ -32,6 +32,11 @@ Isso significa que as variáveis de ambiente não estão configuradas no projeto
 - **Value**: A chave **anon public** do Supabase (NÃO a URL!)
 - **Environments**: Marque todas (Production, Preview, Development)
 
+#### Variável 3: SUPABASE_SERVICE_ROLE_KEY (obrigatória para criar empresa)
+- **Key**: `SUPABASE_SERVICE_ROLE_KEY`
+- **Value**: A chave **service_role** do Supabase (Dashboard Supabase → Settings → API → service_role)
+- **Environments**: Marque Production (e as outras se quiser). **Nunca** exponha essa chave no frontend; ela é usada só no servidor (API `/api/tenants/create`).
+
 ### 3. Como Obter a Chave Pública do Supabase
 
 1. Acesse o Dashboard do Supabase: https://supabase.com/dashboard

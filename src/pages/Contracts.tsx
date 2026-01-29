@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Button } from "@/components/ui/button";
@@ -30,8 +30,10 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Badge } from "@/components/ui/badge";
-import { NewContractDialog } from "@/components/contracts/NewContractDialog";
-import { ContractViewDialog } from "@/components/contracts/ContractViewDialog";
+// Dynamic imports para reduzir bundle inicial - dialogs só carregam quando necessários
+import dynamic from "next/dynamic";
+const NewContractDialog = dynamic(() => import("@/components/contracts/NewContractDialog").then(mod => ({ default: mod.NewContractDialog })), { ssr: false });
+const ContractViewDialog = dynamic(() => import("@/components/contracts/ContractViewDialog").then(mod => ({ default: mod.ContractViewDialog })), { ssr: false });
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
@@ -87,19 +89,10 @@ export default function Contracts() {
   const [editingContractId, setEditingContractId] = useState<string | undefined>(undefined);
   const [viewingContract, setViewingContract] = useState<Contract | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const hasInitializedFilter = useRef(false);
-  
-  // Obter tenant_id do usuário autenticado e todas as empresas
+
   const { tenantId, isLoading: loadingTenant } = useTenant();
-  const { tenants, selectedTenantId } = useTenantSelector();
-  
-  // Inicializar filtro com a empresa selecionada
-  useEffect(() => {
-    if (selectedTenantId && !hasInitializedFilter.current) {
-      setTenantFilter(selectedTenantId);
-      hasInitializedFilter.current = true;
-    }
-  }, [selectedTenantId]);
+  const { tenants } = useTenantSelector();
+  // tenantFilter null = Todas as empresas (visão unificada por padrão)
 
   // Buscar contratos do Supabase - de todas as empresas ou filtrado
   const { data: contractsData, isLoading } = useQuery({
@@ -386,31 +379,35 @@ export default function Contracts() {
           </Card>
         )}
 
-        {/* View Contract Dialog */}
-        <ContractViewDialog
-          open={isViewDialogOpen}
-          onOpenChange={setIsViewDialogOpen}
-          contract={viewingContract}
-          onEdit={() => {
-            if (viewingContract) {
-              setEditingContractId(viewingContract.id);
-              setIsNewContractOpen(true);
-            }
-          }}
-        />
+        {/* View Contract Dialog - Defer: só renderiza quando aberto */}
+        {isViewDialogOpen && (
+          <ContractViewDialog
+            open={isViewDialogOpen}
+            onOpenChange={setIsViewDialogOpen}
+            contract={viewingContract}
+            onEdit={() => {
+              if (viewingContract) {
+                setEditingContractId(viewingContract.id);
+                setIsNewContractOpen(true);
+              }
+            }}
+          />
+        )}
 
-        {/* New/Edit Contract Dialog */}
-        <NewContractDialog
-          open={isNewContractOpen}
-          onOpenChange={(open) => {
-            setIsNewContractOpen(open);
-            if (!open) {
-              setEditingContractId(undefined);
-            }
-          }}
-          tenantId={tenantId}
-          contractId={editingContractId}
-        />
+        {/* New/Edit Contract Dialog - Defer: só renderiza quando aberto */}
+        {isNewContractOpen && (
+          <NewContractDialog
+            open={isNewContractOpen}
+            onOpenChange={(open) => {
+              setIsNewContractOpen(open);
+              if (!open) {
+                setEditingContractId(undefined);
+              }
+            }}
+            tenantId={tenantId}
+            contractId={editingContractId}
+          />
+        )}
       </div>
     </AppLayout>
   );

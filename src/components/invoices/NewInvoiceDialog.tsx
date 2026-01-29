@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useForm, useWatch } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -100,13 +100,14 @@ export function NewInvoiceDialog({ open, onOpenChange, invoiceId }: NewInvoiceDi
   const [selectedContractId, setSelectedContractId] = useState<string>("");
   const isEditing = !!invoiceId;
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
+  const tenantsArray = useMemo(() => (Array.isArray(tenants) ? tenants : []), [tenants]);
 
   const form = useForm<InvoiceFormValues>({
     resolver: zodResolver(invoiceSchema),
     defaultValues: {
       status: "em_cobranca",
       competencia: new Date().toISOString().slice(0, 7), // YYYY-MM do mês atual
-      tenant_id: currentTenantId || "",
+      tenant_id: currentTenantId || tenantsArray[0]?.id || "",
     },
   });
 
@@ -310,12 +311,12 @@ export function NewInvoiceDialog({ open, onOpenChange, invoiceId }: NewInvoiceDi
     }
   }, [open, form, isEditing, currentTenantId]);
 
-  // Atualizar tenant_id quando currentTenantId mudar (se não estiver editando)
+  // Ao abrir nova nota, preencher empresa se estiver vazio (primeira da lista ou filtro ativo)
   useEffect(() => {
-    if (!isEditing && currentTenantId && !form.getValues("tenant_id")) {
-      form.setValue("tenant_id", currentTenantId);
+    if (!isEditing && open && tenantsArray.length > 0 && !form.getValues("tenant_id")) {
+      form.setValue("tenant_id", currentTenantId || tenantsArray[0].id);
     }
-  }, [currentTenantId, isEditing, form]);
+  }, [open, isEditing, tenantsArray, currentTenantId, form]);
 
   // Observar valores dos campos para cálculo automático
   const valorBruto = useWatch({ control: form.control, name: "valor_bruto" });

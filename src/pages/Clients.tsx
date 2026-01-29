@@ -16,9 +16,12 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/hooks/use-tenant";
-import { NewClientDialog } from "@/components/clients/NewClientDialog";
-import { ClientViewDialog } from "@/components/clients/ClientViewDialog";
+import { useTenantSelector } from "@/hooks/use-tenant-selector";
+import { TenantFilter } from "@/components/tenants/TenantFilter";
+// Dynamic imports para reduzir bundle inicial - dialogs só carregam quando necessários
+import dynamic from "next/dynamic";
+const NewClientDialog = dynamic(() => import("@/components/clients/NewClientDialog").then(mod => ({ default: mod.NewClientDialog })), { ssr: false });
+const ClientViewDialog = dynamic(() => import("@/components/clients/ClientViewDialog").then(mod => ({ default: mod.ClientViewDialog })), { ssr: false });
 
 interface Client {
   id: string;
@@ -30,6 +33,8 @@ interface Client {
   cidade: string | null;
   uf: string | null;
   status: "ativo" | "inativo";
+  tenant_id?: string;
+  tenantName?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -45,30 +50,39 @@ function getInitials(name: string): string {
 
 export default function Clients() {
   const [searchTerm, setSearchTerm] = useState("");
+  const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const [isNewClientOpen, setIsNewClientOpen] = useState(false);
   const [editingClientId, setEditingClientId] = useState<string | undefined>(undefined);
   const [viewingClient, setViewingClient] = useState<Client | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const { tenantId, isLoading: loadingTenant } = useTenant();
+  const { tenants, isLoading: loadingTenant } = useTenantSelector();
+  const tenantIds = tenantFilter ? [tenantFilter] : tenants.map((t) => t.id);
+  const tenantIdForDialog = tenantFilter || tenants[0]?.id;
 
-  // Buscar contratantes do Supabase
-  const { data: clients = [], isLoading } = useQuery({
-    queryKey: ["clients", tenantId],
+  // Buscar contratantes de todas as empresas (ou filtrado)
+  const { data: clientsRaw = [], isLoading } = useQuery({
+    queryKey: ["clients", tenantFilter, tenantIds.join(",")],
     queryFn: async () => {
-      if (!tenantId) return [];
-
+      if (tenantIds.length === 0) return [];
       const { data, error } = await supabase
         .from("clients" as never)
-        .select("*")
-        .eq("tenant_id", tenantId)
+        .select(`
+          *,
+          tenants:tenant_id ( id, name )
+        `)
+        .in("tenant_id", tenantIds)
         .order("razao_social");
-
       if (error) throw error;
-      const typedData = (data || []) as Client[];
-      return typedData;
+      return (data || []) as Array<Client & { tenants?: { id: string; name: string } | null }>;
     },
-    enabled: !!tenantId,
+    enabled: !loadingTenant && tenantIds.length > 0,
   });
+
+  const clients: Client[] = clientsRaw.map((c: Client & { tenants?: { name: string } | null }) => ({
+    ...c,
+    tenant_id: c.tenant_id,
+    tenantName: c.tenants?.name ?? undefined,
+  }));
 
   const filteredClients = clients.filter(
     (client) =>
@@ -97,17 +111,20 @@ export default function Clients() {
           </Button>
         </div>
 
-        {/* Search */}
+        {/* Filtros */}
         <Card>
           <CardContent className="p-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Buscar por nome, CNPJ..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+            <div className="flex flex-col sm:flex-row gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Buscar por nome, CNPJ..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
+              <TenantFilter value={tenantFilter} onValueChange={setTenantFilter} />
             </div>
           </CardContent>
         </Card>
@@ -181,6 +198,11 @@ export default function Clients() {
                   </DropdownMenu>
                 </div>
 
+                {client.tenantName && (
+                  <p className="text-xs text-muted-foreground mb-2 truncate" title={client.tenantName}>
+                    {client.tenantName}
+                  </p>
+                )}
                 <p className="text-xs text-muted-foreground mb-4 line-clamp-2">
                   {client.razao_social}
                 </p>
@@ -222,21 +244,23 @@ export default function Clients() {
           </div>
         )}
 
-        {/* View Client Dialog */}
-        <ClientViewDialog
-          open={isViewDialogOpen}
-          onOpenChange={setIsViewDialogOpen}
-          client={viewingClient}
-          onEdit={() => {
-            if (viewingClient) {
-              setEditingClientId(viewingClient.id);
-              setIsNewClientOpen(true);
-            }
-          }}
-        />
+        {/* View Client Dialog - Defer: só renderiza quando aberto */}
+        {isViewDialogOpen && (
+          <ClientViewDialog
+            open={isViewDialogOpen}
+            onOpenChange={setIsViewDialogOpen}
+            client={viewingClient}
+            onEdit={() => {
+              if (viewingClient) {
+                setEditingClientId(viewingClient.id);
+                setIsNewClientOpen(true);
+              }
+            }}
+          />
+        )}
 
-        {/* New/Edit Client Dialog */}
-        {tenantId && (
+        {/* New/Edit Client Dialog - Defer: só renderiza quando aberto */}
+        {tenantIdForDialog && isNewClientOpen && (
           <NewClientDialog
             open={isNewClientOpen}
             onOpenChange={(open) => {
@@ -245,7 +269,7 @@ export default function Clients() {
                 setEditingClientId(undefined);
               }
             }}
-            tenantId={tenantId}
+            tenantId={tenantIdForDialog}
             clientId={editingClientId}
           />
         )}

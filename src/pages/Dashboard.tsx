@@ -1,23 +1,36 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import { DashboardCards } from "@/components/dashboard/DashboardCards";
 import { RecentActivity } from "@/components/dashboard/RecentActivity";
 import { UpcomingTasks } from "@/components/dashboard/UpcomingTasks";
-import { ContractsChart } from "@/components/dashboard/ContractsChart";
 import { TopClients } from "@/components/dashboard/TopClients";
 import { ExpiringDocuments } from "@/components/dashboard/ExpiringDocuments";
 
+// Dynamic import para Recharts - só carrega quando necessário (client-only)
+// Isso remove ~370KB do bundle inicial
+const ChartsClient = dynamic(
+  () => import("@/components/charts/ChartsClient").then((mod) => ({ default: mod.ContractsChartClient })),
+  {
+    ssr: false,
+    loading: () => (
+      <div className="col-span-full lg:col-span-2 border rounded-lg p-6" style={{ minHeight: 280 }}>
+        <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+          Carregando gráfico...
+        </div>
+      </div>
+    ),
+  }
+);
+
 export default function Dashboard() {
-  const [isMounted, setIsMounted] = useState(false);
+  // Defer: só renderizar chart após mount (evita carregar no SSR)
+  const [showChart, setShowChart] = useState(false);
 
   useEffect(() => {
-    setIsMounted(true);
+    setShowChart(true);
   }, []);
-
-  if (!isMounted) {
-    return null;
-  }
   return (
     <div className="p-3 sm:p-4 md:p-6 space-y-3 sm:space-y-4 md:space-y-6">
       {/* Page Header */}
@@ -35,7 +48,14 @@ export default function Dashboard() {
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Chart + Top Clients */}
         <div className="lg:col-span-2 space-y-6">
-          <ContractsChart />
+          {/* Chart só renderiza após mount - remove recharts do bundle inicial */}
+          {showChart ? <ChartsClient /> : (
+            <div className="border rounded-lg p-6" style={{ minHeight: 280 }}>
+              <div className="h-full flex items-center justify-center text-muted-foreground text-sm">
+                Carregando gráfico...
+              </div>
+            </div>
+          )}
           <TopClients />
         </div>
 

@@ -91,18 +91,22 @@ export function useTenantSelector() {
   const [selectedTenantId, setSelectedTenantIdState] = useState<string | null>(null);
 
   useEffect(() => {
-    if (typeof window === "undefined") return; // Verificar se está no cliente
-    
+    if (typeof window === "undefined") return;
+
     if (tenants && tenants.length > 0) {
       const stored = localStorage.getItem(SELECTED_TENANT_KEY);
+      // "all" ou vazio = Todas as empresas (visão unificada)
+      if (stored === "all" || stored === "" || stored === null) {
+        setSelectedTenantIdState(null);
+        localStorage.setItem(SELECTED_TENANT_KEY, "all");
+        return;
+      }
       const storedTenant = tenants.find((t) => t.id === stored);
-      
       if (storedTenant) {
         setSelectedTenantIdState(storedTenant.id);
       } else {
-        // Usar o primeiro tenant disponível
-        setSelectedTenantIdState(tenants[0].id);
-        localStorage.setItem(SELECTED_TENANT_KEY, tenants[0].id);
+        setSelectedTenantIdState(null);
+        localStorage.setItem(SELECTED_TENANT_KEY, "all");
       }
     } else {
       setSelectedTenantIdState(null);
@@ -116,7 +120,7 @@ export function useTenantSelector() {
       if (tenantId) {
         localStorage.setItem(SELECTED_TENANT_KEY, tenantId);
       } else {
-        localStorage.removeItem(SELECTED_TENANT_KEY);
+        localStorage.setItem(SELECTED_TENANT_KEY, "all");
       }
     }
   };

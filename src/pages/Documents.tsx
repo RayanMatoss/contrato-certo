@@ -1,14 +1,17 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import dynamic from "next/dynamic";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
-import { UploadDocumentDialog } from "@/components/documents/UploadDocumentDialog";
 import { toast } from "sonner";
+
+// Dynamic import para reduzir bundle inicial - dialog só carrega quando necessário
+const UploadDocumentDialog = dynamic(() => import("@/components/documents/UploadDocumentDialog").then(mod => ({ default: mod.UploadDocumentDialog })), { ssr: false });
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -124,19 +127,10 @@ export default function Documents() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
-  const hasInitializedFilter = useRef(false);
-  
-  const { tenantId, isLoading: loadingTenant } = useTenant();
-  const { tenants, selectedTenantId } = useTenantSelector();
-  const queryClient = useQueryClient();
 
-  // Inicializar filtro com a empresa selecionada
-  useEffect(() => {
-    if (selectedTenantId && !hasInitializedFilter.current) {
-      setTenantFilter(selectedTenantId);
-      hasInitializedFilter.current = true;
-    }
-  }, [selectedTenantId]);
+  const { tenantId, isLoading: loadingTenant } = useTenant();
+  const { tenants } = useTenantSelector();
+  const queryClient = useQueryClient();
 
   // Buscar documentos do Supabase - de todas as empresas ou filtrado
   const { data: documentsData, isLoading: loadingDocuments } = useQuery({
@@ -422,7 +416,7 @@ export default function Documents() {
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3 hidden sm:table-cell">Categoria</TableHead>
                   <TableHead className="hidden md:table-cell px-3 md:px-4 text-xs sm:text-sm py-2 md:py-3">Empresa</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Upload</TableHead>
-                  <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3 hidden xs:table-cell">Validade</TableHead>
+                  <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Validade/Vigência</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Status</TableHead>
                   <TableHead className="w-[35px] sm:w-[40px] md:w-[50px] px-1 sm:px-2 md:px-4 py-2 sm:py-3"></TableHead>
                 </TableRow>
@@ -467,8 +461,17 @@ export default function Documents() {
                           </div>
                         </TableCell>
                         <TableCell className="text-[10px] sm:text-xs md:text-sm px-2 sm:px-3 md:px-4 py-2 sm:py-3">{formatDate(doc.created_at)}</TableCell>
-                        <TableCell className="text-[10px] sm:text-xs md:text-sm px-2 sm:px-3 md:px-4 py-2 sm:py-3 hidden xs:table-cell">
-                          {doc.validade ? formatDate(doc.validade) : "-"}
+                        <TableCell className="text-[10px] sm:text-xs md:text-sm px-2 sm:px-3 md:px-4 py-2 sm:py-3">
+                          {doc.validade ? (
+                            <span className={cn(
+                              status === "expirado" && "text-destructive font-medium",
+                              status === "expirando" && "text-warning font-medium"
+                            )}>
+                              {formatDate(doc.validade)}
+                            </span>
+                          ) : (
+                            <span className="text-muted-foreground">-</span>
+                          )}
                         </TableCell>
                         <TableCell className="px-2 sm:px-3 md:px-4 py-2 sm:py-3">
                           <div className="flex items-center gap-1 sm:gap-1.5 md:gap-2">
@@ -527,12 +530,14 @@ export default function Documents() {
         </Card>
       </div>
 
-      {/* Upload Document Dialog */}
-      <UploadDocumentDialog
-        open={isUploadDialogOpen}
-        onOpenChange={setIsUploadDialogOpen}
-        tenantId={tenantId}
-      />
+      {/* Upload Document Dialog - Defer: só renderiza quando aberto */}
+      {isUploadDialogOpen && (
+        <UploadDocumentDialog
+          open={isUploadDialogOpen}
+          onOpenChange={setIsUploadDialogOpen}
+          tenantId={tenantId}
+        />
+      )}
     </AppLayout>
   );
 }

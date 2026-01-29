@@ -1,9 +1,9 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
 import { AppSidebar } from "./AppSidebar";
-import { Bell, Search, Plus, LogOut } from "lucide-react";
+// Import otimizado: apenas ícones usados no header (componente global)
+import { Bell, Search, Plus, LogOut } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -14,7 +14,7 @@ import {
   DropdownMenuSeparator,
 } from "@/components/ui/dropdown-menu";
 import { useAuth } from "@/hooks/use-auth";
-import { supabase } from "@/integrations/supabase/client";
+import { useLogout } from "@/hooks/use-logout";
 import { TenantSelector } from "@/components/tenants/TenantSelector";
 
 interface AppLayoutProps {
@@ -22,14 +22,8 @@ interface AppLayoutProps {
 }
 
 export function AppLayout({ children }: AppLayoutProps) {
-  const router = useRouter();
   const { user } = useAuth();
-
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
+  const { logout } = useLogout();
 
   return (
     <SidebarProvider>
@@ -91,7 +85,7 @@ export function AppLayout({ children }: AppLayoutProps) {
                     <p className="text-sm font-medium truncate">{user?.email}</p>
                   </div>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout}>
+                  <DropdownMenuItem onClick={logout}>
                     <LogOut className="mr-2 h-4 w-4" />
                     Sair
                   </DropdownMenuItem>

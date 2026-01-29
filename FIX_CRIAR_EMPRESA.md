@@ -21,31 +21,28 @@ Podem ocorrer dois tipos de violação de RLS:
 1. **Tabela `tenants`** – Em produção, a política de INSERT pode não estar ativa (migrations não aplicadas ou projeto Supabase diferente). O erro aparece como: *"new row violates row-level security policy for table **tenants**"*.
 2. **Tabela `tenant_memberships`** – A política de INSERT exige que o usuário já seja admin de um tenant. Isso gera um “ovo e galinha”: para criar o primeiro tenant é preciso criar o membership, mas para criar membership era preciso ser admin de um tenant já existente.
 
-## ✅ Solução definitiva (migration 010)
+## ✅ Solução definitiva (API route no servidor)
 
-A aplicação **não insere mais direto na tabela `tenants`**. Ela chama a função **`create_tenant`** no banco, que cria o tenant e o membership em uma única operação com privilégios elevados (bypassa RLS). Assim o erro de RLS deixa de ocorrer.
+A aplicação **não insere mais direto na tabela `tenants`**. Ao criar empresa, o frontend chama **`POST /api/tenants/create`**. Essa API usa a **service role** do Supabase no servidor (Vercel), que **bypassa RLS**. Assim o erro de RLS deixa de ocorrer, sem precisar rodar SQL manual no Supabase.
 
-### O que fazer no Supabase de produção (uma vez)
+### O que fazer na Vercel (uma vez)
 
-1. **Acesse o Dashboard do Supabase**
-   - https://supabase.com/dashboard → selecione o **projeto usado em produção** (o mesmo das variáveis na Vercel).
+1. **Adicione a variável de ambiente**
+   - Vercel → seu projeto → **Settings** → **Environment Variables**
+   - **Key:** `SUPABASE_SERVICE_ROLE_KEY`
+   - **Value:** a chave **service_role** do Supabase (Dashboard do Supabase → **Settings** → **API** → **Project API keys** → **service_role** — copie e cole; **nunca** exponha no frontend)
+   - Marque **Production** (e Preview/Development se quiser)
 
-2. **SQL Editor**
-   - No menu lateral: **SQL Editor**.
+2. **Redeploy**
+   - **Deployments** → menu (...) do último deploy → **Redeploy**  
+   - Ou faça um novo push no repositório.
 
-3. **Rodar a migration 010**
-   - Copie **todo** o conteúdo de `supabase/migrations/010_create_tenant_function.sql`.
-   - Cole no SQL Editor e clique em **Run**.
-
-4. **Testar**
+3. **Testar**
    - Na aplicação publicada, tente criar uma nova empresa. O fluxo deve funcionar sem erro de RLS.
 
-### Se ainda aparecer erro
+### Alternativa: função no banco (migration 010)
 
-Se o 403 continuar, execute também (no mesmo projeto):
-
-- `supabase/migrations/009_fix_tenants_insert_rls.sql` (política INSERT em `tenants`).
-- `supabase/migrations/007_fix_tenant_creation_rls.sql` (membership e SELECT em `tenants`).
+Se preferir não usar a service role na Vercel, pode usar a função `create_tenant` no Supabase: rode no **SQL Editor** do projeto o conteúdo de `supabase/migrations/010_create_tenant_function.sql` e altere o frontend para chamar a RPC `create_tenant` em vez da API (o código atual usa a API).
 
 ## 📝 Conteúdo da Migration
 

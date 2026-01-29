@@ -110,20 +110,24 @@ export function NewTenantDialog({ open, onOpenChange, tenantId }: NewTenantDialo
         if (error) throw error;
         return data;
       } else {
-        // Criar novo tenant via RPC (função no banco bypassa RLS = solução definitiva)
-        const { data: tenantData, error: tenantError } = await supabase.rpc(
-          "create_tenant",
-          {
-            p_name: values.name,
-            p_slug: values.slug,
-            p_cnpj: values.cnpj || null,
-          }
-        );
-
-        if (tenantError) throw tenantError;
-        const tenant = Array.isArray(tenantData) ? tenantData[0] : tenantData;
-        if (!tenant) throw new Error("Erro ao criar empresa");
-        return tenant;
+        // Criar novo tenant via API (service_role no servidor = solução definitiva, não depende de RLS)
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error("Sessão expirada. Faça login novamente.");
+        const res = await fetch("/api/tenants/create", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({
+            name: values.name,
+            slug: values.slug,
+            cnpj: values.cnpj || null,
+          }),
+        });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Erro ao criar empresa");
+        return data;
       }
     },
     onSuccess: () => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import * as z from "zod";
@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Building2 } from "lucide-react";
+import { Loader2, Building2, Upload, X, File } from "lucide-react";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 
 const contractSchema = z.object({
@@ -69,15 +69,17 @@ interface NewContractDialogProps {
 export function NewContractDialog({ open, onOpenChange, contractId }: NewContractDialogProps) {
   const queryClient = useQueryClient();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const isEditing = !!contractId;
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
-  const tenantsArray = Array.isArray(tenants) ? tenants : [];
+  const tenantsArray = useMemo(() => (Array.isArray(tenants) ? tenants : []), [tenants]);
 
   const form = useForm<ContractFormValues>({
     resolver: zodResolver(contractSchema),
     defaultValues: {
       status: "rascunho",
-      tenant_id: currentTenantId || "",
+      tenant_id: currentTenantId || tenantsArray[0]?.id || "",
     },
   });
 
@@ -123,6 +125,9 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
         status: string;
         periodicidade_reajuste?: number;
         responsavel_interno?: string;
+        file_path?: string;
+        file_size?: number;
+        file_mime_type?: string;
       };
 
       form.reset({
@@ -141,37 +146,57 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
     }
   }, [contractData, isEditing, form]);
 
-  // Observar tenant_id selecionado no formulário para buscar contratantes
   const selectedTenantId = form.watch("tenant_id");
+  const tenantIds = tenantsArray.map((t) => t.id);
 
-  // Buscar contratantes baseado no tenant_id selecionado
+  // Buscar contratantes de TODAS as empresas do usuário (disponíveis para qualquer contrato)
   const { data: clients, isLoading: loadingClients } = useQuery({
-    queryKey: ["clients", selectedTenantId],
+    queryKey: ["clients", "all-tenants", tenantIds.join(",")],
     queryFn: async () => {
-      if (!selectedTenantId) {
-        return [];
-      }
-      
+      if (tenantIds.length === 0) return [];
       const { data, error } = await supabase
         .from("clients" as never)
-        .select("id, razao_social, nome_fantasia")
-        .eq("tenant_id", selectedTenantId)
+        .select("id, razao_social, nome_fantasia, tenant_id")
+        .in("tenant_id", tenantIds)
         .eq("status", "ativo")
         .order("razao_social");
-
       if (error) {
-        console.error('❌ Erro ao buscar contratantes:', error);
+        console.error("❌ Erro ao buscar contratantes:", error);
         throw error;
       }
-      
       return data || [];
     },
-    enabled: open && !!selectedTenantId,
+    enabled: open && tenantIds.length > 0,
   });
 
   // Mutation para criar ou atualizar contrato
   const saveContract = useMutation({
     mutationFn: async (values: ContractFormValues) => {
+      let filePath: string | null = null;
+      let fileSize: number | null = null;
+      let fileMimeType: string | null = null;
+
+      // Upload do arquivo se houver
+      if (selectedFile) {
+        const fileExt = selectedFile.name.split(".").pop();
+        const fileName = `contract_${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+        filePath = `${values.tenant_id}/contracts/${fileName}`;
+        
+        const { error: uploadError } = await supabase.storage
+          .from("documents" as never)
+          .upload(filePath, selectedFile, {
+            cacheControl: "3600",
+            upsert: false,
+          });
+
+        if (uploadError) {
+          throw new Error(`Erro ao fazer upload do arquivo: ${uploadError.message}`);
+        }
+
+        fileSize = selectedFile.size;
+        fileMimeType = selectedFile.type;
+      }
+
       const contractData = {
         tenant_id: values.tenant_id,
         client_id: values.client_id,
@@ -188,9 +213,26 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
           ? parseInt(values.periodicidade_reajuste)
           : null,
         responsavel_interno: values.responsavel_interno || null,
+        file_path: filePath,
+        file_size: fileSize,
+        file_mime_type: fileMimeType,
       };
 
       if (isEditing && contractId) {
+        // Buscar contrato existente para verificar se há arquivo antigo
+        const { data: existingContract, error: fetchError } = await supabase
+          .from("contracts" as never)
+          .select("file_path")
+          .eq("id", contractId)
+          .single();
+
+        if (fetchError) {
+          throw fetchError;
+        }
+
+        // Guardar o caminho do arquivo antigo antes de atualizar
+        const oldFilePath = existingContract ? (existingContract as { file_path?: string | null }).file_path || null : null;
+
         // Atualizar contrato existente
         const tableName = "contracts" as never;
         const { data, error } = await supabase
@@ -200,7 +242,19 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // Se der erro e tiver feito upload, tentar deletar o arquivo
+          if (filePath) {
+            await supabase.storage.from("documents").remove([filePath]);
+          }
+          throw error;
+        }
+
+        // Se foi feito upload de novo arquivo, deletar o arquivo antigo
+        if (filePath && oldFilePath && oldFilePath !== filePath) {
+          await supabase.storage.from("documents").remove([oldFilePath]);
+        }
+
         return data;
       } else {
         // Criar novo contrato
@@ -211,7 +265,14 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
           .select()
           .single();
 
-        if (error) throw error;
+        if (error) {
+          // Se der erro e tiver feito upload, tentar deletar o arquivo
+          if (filePath) {
+            await supabase.storage.from("documents").remove([filePath]);
+          }
+          throw error;
+        }
+
         return data;
       }
     },
@@ -226,6 +287,10 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
         status: "rascunho",
         tenant_id: currentTenantId || "",
       });
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
       onOpenChange(false);
     },
     onError: (error: Error) => {
@@ -241,6 +306,25 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
     saveContract.mutate(values);
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Validar tamanho (máximo 10MB)
+      if (file.size > 10 * 1024 * 1024) {
+        toast.error("O arquivo deve ter no máximo 10MB");
+        return;
+      }
+      setSelectedFile(file);
+    }
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
+    }
+  };
+
   // Resetar formulário quando o dialog fechar ou quando não for edição
   useEffect(() => {
     if (!open && !isEditing) {
@@ -248,15 +332,19 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
         status: "rascunho",
         tenant_id: currentTenantId || "",
       });
+      setSelectedFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
     }
   }, [open, form, isEditing, selectedTenantId, currentTenantId]);
 
-  // Atualizar tenant_id quando currentTenantId mudar (se não estiver editando)
+  // Ao abrir novo contrato, preencher empresa se estiver vazio (primeira da lista ou filtro ativo)
   useEffect(() => {
-    if (!isEditing && currentTenantId && !form.getValues("tenant_id")) {
-      form.setValue("tenant_id", currentTenantId);
+    if (!isEditing && open && tenantsArray.length > 0 && !form.getValues("tenant_id")) {
+      form.setValue("tenant_id", currentTenantId || tenantsArray[0].id);
     }
-  }, [currentTenantId, isEditing, form]);
+  }, [open, isEditing, tenantsArray, currentTenantId, form]);
 
   // Se não houver empresas disponíveis, mostrar mensagem
   if (tenantsArray.length === 0) {
@@ -308,15 +396,11 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
                     <Select
                       onValueChange={field.onChange}
                       value={field.value}
-                      disabled={loadingClients || !selectedTenantId}
+                      disabled={loadingClients}
                     >
                       <FormControl>
                         <SelectTrigger>
-                          <SelectValue placeholder={
-                            !selectedTenantId 
-                              ? "Selecione uma empresa primeiro" 
-                              : "Selecione um contratante"
-                          } />
+                          <SelectValue placeholder="Selecione um contratante" />
                         </SelectTrigger>
                       </FormControl>
                       <SelectContent>
@@ -326,11 +410,11 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
                               {client.nome_fantasia || client.razao_social}
                             </SelectItem>
                           ))
-                        ) : selectedTenantId ? (
+                        ) : (
                           <div className="px-2 py-1.5 text-sm text-muted-foreground">
-                            Nenhum contratante encontrado para esta empresa
+                            Nenhum contratante cadastrado nas suas empresas
                           </div>
-                        ) : null}
+                        )}
                       </SelectContent>
                     </Select>
                     <FormMessage />
@@ -472,11 +556,7 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
                   <FormItem>
                     <FormLabel>Empresa *</FormLabel>
                     <Select 
-                      onValueChange={(value) => {
-                        field.onChange(value);
-                        // Limpar contratante quando mudar de empresa
-                        form.setValue("client_id", "");
-                      }} 
+                      onValueChange={field.onChange} 
                       value={field.value}
                       disabled={tenantsArray.length === 0}
                     >
@@ -537,6 +617,67 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
                   </FormItem>
                 )}
               />
+            </div>
+
+            {/* Upload de Arquivo do Contrato */}
+            <div className="space-y-2">
+              <FormLabel>Arquivo do Contrato</FormLabel>
+              {!selectedFile ? (
+                <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-6 text-center hover:border-muted-foreground/50 transition-colors">
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    onChange={handleFileChange}
+                    className="hidden"
+                    id="contract-file-upload"
+                    accept=".pdf,.doc,.docx"
+                  />
+                  <label
+                    htmlFor="contract-file-upload"
+                    className="cursor-pointer flex flex-col items-center gap-2"
+                  >
+                    <Upload className="h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">
+                      Clique para selecionar ou arraste o arquivo
+                    </span>
+                    <span className="text-xs text-muted-foreground">
+                      PDF, DOC, DOCX (máx. 10MB)
+                    </span>
+                  </label>
+                  {isEditing && contractData && (contractData as { file_path?: string }).file_path && (
+                    <div className="mt-3 pt-3 border-t">
+                      <p className="text-xs text-muted-foreground">
+                        Arquivo atual: {(contractData as { file_path?: string }).file_path?.split("/").pop()}
+                      </p>
+                      <p className="text-xs text-muted-foreground mt-1">
+                        Selecione um novo arquivo para substituir
+                      </p>
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="border rounded-lg p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-muted">
+                      <File className="h-4 w-4 text-muted-foreground" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium">{selectedFile.name}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                      </p>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleRemoveFile}
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              )}
             </div>
 
             <DialogFooter>

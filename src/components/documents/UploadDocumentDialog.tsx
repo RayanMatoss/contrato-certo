@@ -33,7 +33,7 @@ import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
-import { Loader2, Upload, X, File, Building2, AlertCircle } from "lucide-react";
+import { Loader2, Upload, X, File, Building2, AlertCircle, Eye } from "lucide-react";
 import { useAuth } from "@/hooks/use-auth";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 
@@ -78,6 +78,7 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
   const { user } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const { tenants, selectedTenantId: currentTenantId } = useTenantSelector();
 
@@ -201,6 +202,13 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
     onSuccess: () => {
       toast.success("Documento enviado com sucesso!");
       queryClient.invalidateQueries({ queryKey: ["documents"] });
+      
+      // Limpar preview
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
+      
       form.reset({
         type: "outros",
         tenant_id: currentTenantId || "",
@@ -212,6 +220,11 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
       onOpenChange(false);
     },
     onError: (error: Error) => {
+      // Ignorar erros de abort (são normais quando queries são canceladas)
+      if (error.name === 'AbortError' || error.message.includes('aborted')) {
+        console.warn('Query foi cancelada:', error);
+        return;
+      }
       toast.error(`Erro ao enviar documento: ${error.message}`);
     },
     onSettled: () => {
@@ -227,15 +240,48 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      setSelectedFile(file);
-      // Preencher nome automaticamente se estiver vazio
-      if (!form.getValues("name")) {
-        form.setValue("name", file.name.replace(/\.[^/.]+$/, ""));
+      try {
+        // Limpar preview anterior se existir
+        if (previewUrl) {
+          URL.revokeObjectURL(previewUrl);
+          setPreviewUrl(null);
+        }
+
+        setSelectedFile(file);
+        // Preencher nome automaticamente se estiver vazio
+        if (!form.getValues("name")) {
+          form.setValue("name", file.name.replace(/\.[^/.]+$/, ""));
+        }
+        
+        // Criar preview para PDFs e imagens
+        if (
+          file.type === "application/pdf" || 
+          file.name.toLowerCase().endsWith(".pdf") ||
+          file.type.startsWith("image/")
+        ) {
+          try {
+            const url = URL.createObjectURL(file);
+            setPreviewUrl(url);
+          } catch (error) {
+            console.warn("Erro ao criar preview:", error);
+            setPreviewUrl(null);
+          }
+        } else {
+          setPreviewUrl(null);
+        }
+      } catch (error) {
+        console.error("Erro ao processar arquivo:", error);
+        toast.error("Erro ao processar o arquivo selecionado");
       }
     }
   };
 
   const handleRemoveFile = () => {
+    // Limpar preview URL se existir
+    if (previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
     setSelectedFile(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -245,6 +291,11 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
   // Resetar formulário quando o dialog fechar
   const handleClose = (open: boolean) => {
     if (!open) {
+      // Limpar preview URL se existir
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+        setPreviewUrl(null);
+      }
       form.reset({
         type: "outros",
         tenant_id: currentTenantId || "",
@@ -256,6 +307,23 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
     }
     onOpenChange(open);
   };
+
+  // Limpar preview URL quando o componente desmontar ou quando o dialog fechar
+  useEffect(() => {
+    if (!open && previewUrl) {
+      URL.revokeObjectURL(previewUrl);
+      setPreviewUrl(null);
+    }
+  }, [open, previewUrl]);
+
+  // Cleanup final quando componente desmontar
+  useEffect(() => {
+    return () => {
+      if (previewUrl) {
+        URL.revokeObjectURL(previewUrl);
+      }
+    };
+  }, [previewUrl]);
 
   return (
     <Dialog open={open} onOpenChange={handleClose}>
@@ -306,26 +374,55 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
                   </label>
                 </div>
               ) : (
-                <div className="border rounded-lg p-4 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="p-2 rounded-lg bg-muted">
-                      <File className="h-4 w-4 text-muted-foreground" />
+                <div className="space-y-3">
+                  <div className="border rounded-lg p-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="p-2 rounded-lg bg-muted">
+                        <File className="h-4 w-4 text-muted-foreground" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium">{selectedFile.name}</p>
+                        <p className="text-xs text-muted-foreground">
+                          {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
+                        </p>
+                      </div>
                     </div>
-                    <div>
-                      <p className="text-sm font-medium">{selectedFile.name}</p>
-                      <p className="text-xs text-muted-foreground">
-                        {(selectedFile.size / 1024 / 1024).toFixed(2)} MB
-                      </p>
-                    </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="icon"
+                      onClick={handleRemoveFile}
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="ghost"
-                    size="icon"
-                    onClick={handleRemoveFile}
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
+                  
+                  {/* Preview para PDFs e imagens */}
+                  {previewUrl && (
+                    <div className="border rounded-lg overflow-hidden">
+                      <div className="bg-muted px-4 py-2 flex items-center gap-2 border-b">
+                        <Eye className="h-4 w-4 text-muted-foreground" />
+                        <span className="text-sm font-medium">Pré-visualização</span>
+                      </div>
+                      <div className="relative w-full bg-gray-50" style={{ height: "500px" }}>
+                        {selectedFile?.type === "application/pdf" || selectedFile?.name.toLowerCase().endsWith(".pdf") ? (
+                          <iframe
+                            src={previewUrl}
+                            className="w-full h-full border-0"
+                            title="Preview do documento PDF"
+                          />
+                        ) : selectedFile?.type.startsWith("image/") ? (
+                          <div className="w-full h-full flex items-center justify-center p-4">
+                            <img
+                              src={previewUrl}
+                              alt="Preview do documento"
+                              className="max-w-full max-h-full object-contain"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

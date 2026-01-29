@@ -1,9 +1,10 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { useQuery } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+// Import otimizado: apenas ícones usados no sidebar (componente global)
 import {
   LayoutDashboard,
   FileText,
@@ -16,7 +17,7 @@ import {
   LogOut,
   Bell,
   Briefcase,
-} from "lucide-react";
+} from "@/components/icons";
 import { LicityLogo } from "@/components/ui/licity-logo";
 import {
   Sidebar,
@@ -40,9 +41,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
-import { supabase } from "@/integrations/supabase/client";
-import { useTenant } from "@/hooks/use-tenant";
 import { useAuth } from "@/hooks/use-auth";
+import { useSidebarCounts } from "@/hooks/use-sidebar-counts";
+import { useLogout } from "@/hooks/use-logout";
 
 const mainNavItems = [
   {
@@ -99,74 +100,25 @@ const configNavItems = [
 
 export function AppSidebar() {
   const pathname = usePathname();
-  const router = useRouter();
   const { state } = useSidebar();
   const isCollapsed = state === "collapsed";
-  const { tenantId } = useTenant();
   const { user } = useAuth();
+  
+  // Usar hook que busca via API route (evita importar supabase SDK no bundle inicial)
+  const { contractsCount, invoicesCount, tasksCount } = useSidebarCounts();
 
-  // Buscar contadores para badges
-  const { data: contractsCount = 0 } = useQuery({
-    queryKey: ["sidebar-contracts-count", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return 0;
-      const tableName = "contracts" as never;
-      const { count } = await supabase
-        .from(tableName)
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("status", "ativo")
-        .gte("data_fim", new Date().toISOString().split("T")[0])
-        .lte("data_fim", new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]);
-      return count || 0;
-    },
-    enabled: !!tenantId,
-  });
-
-  const { data: invoicesCount = 0 } = useQuery({
-    queryKey: ["sidebar-invoices-count", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return 0;
-      const tableName = "invoices" as never;
-      const { count } = await supabase
-        .from(tableName)
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .eq("status", "a_emitir");
-      return count || 0;
-    },
-    enabled: !!tenantId,
-  });
-
-  const { data: tasksCount = 0 } = useQuery({
-    queryKey: ["sidebar-tasks-count", tenantId],
-    queryFn: async () => {
-      if (!tenantId) return 0;
-      const tableName = "tasks" as never;
-      const { count } = await supabase
-        .from(tableName)
-        .select("*", { count: "exact", head: true })
-        .eq("tenant_id", tenantId)
-        .in("status", ["pendente", "em_andamento"]);
-      return count || 0;
-    },
-    enabled: !!tenantId,
-  });
-
-  // Buscar dados do usuário
+  // Buscar dados do usuário via API route
   const { data: userData } = useQuery({
     queryKey: ["user-data", user?.id],
     queryFn: async () => {
       if (!user?.id) return null;
-      const tableName = "users" as never;
-      const { data } = await supabase
-        .from(tableName)
-        .select("full_name")
-        .eq("id", user.id)
-        .single();
+      const res = await fetch(`/api/users/${user.id}`);
+      if (!res.ok) return null;
+      const data = await res.json();
       return data;
     },
     enabled: !!user?.id,
+    staleTime: 5 * 60 * 1000, // 5 minutos
   });
 
   const getBadgeCount = (badgeKey: string | null) => {
@@ -204,11 +156,7 @@ export function AppSidebar() {
     return typedUserData?.full_name || user?.email?.split("@")[0] || "Usuário";
   };
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
-    router.push("/login");
-    router.refresh();
-  };
+  const { logout } = useLogout();
 
   const isActive = (href: string) => {
     if (href === "/") return pathname === "/";
@@ -343,7 +291,7 @@ export function AppSidebar() {
               Configurações
             </DropdownMenuItem>
             <DropdownMenuSeparator />
-            <DropdownMenuItem className="text-destructive" onClick={handleLogout}>
+            <DropdownMenuItem className="text-destructive" onClick={logout}>
               <LogOut className="mr-2 h-4 w-4" />
               Sair
             </DropdownMenuItem>

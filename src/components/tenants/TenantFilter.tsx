@@ -19,7 +19,7 @@ interface TenantFilterProps {
 }
 
 export function TenantFilter({ value, onValueChange, className, showLabel = true }: TenantFilterProps) {
-  const { tenants, selectedTenant, isLoading } = useTenantSelector();
+  const { tenants, isLoading } = useTenantSelector();
 
   if (isLoading) {
     return (
@@ -86,9 +86,6 @@ export function TenantFilter({ value, onValueChange, className, showLabel = true
                     <p className="text-xs text-muted-foreground truncate">{tenant.cnpj}</p>
                   )}
                 </div>
-                {selectedTenant?.id === tenant.id && (
-                  <span className="text-xs text-primary ml-2">(Ativa)</span>
-                )}
               </div>
             </SelectItem>
           ))}

@@ -1,10 +1,14 @@
+"use client";
+
+// Componente client-only para charts - Recharts só carrega aqui
+// Este arquivo isola recharts do bundle inicial
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from "recharts";
 
 // Dados mockados removidos - agora buscamos do Supabase
 const data: { month: string; faturamento: number }[] = [];
 
-export function ContractsChart() {
+export function ContractsChartClient() {
   return (
     <Card className="col-span-full lg:col-span-2">
       <CardHeader className="pb-2">

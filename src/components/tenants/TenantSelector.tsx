@@ -19,9 +19,8 @@ export function TenantSelector() {
   const router = useRouter();
   const queryClient = useQueryClient();
 
-  const handleSelectTenant = (tenantId: string) => {
+  const handleSelectTenant = (tenantId: string | null) => {
     setSelectedTenantId(tenantId);
-    // Invalidar todas as queries para recarregar dados com o novo tenant
     queryClient.invalidateQueries();
     router.refresh();
   };
@@ -49,17 +48,29 @@ export function TenantSelector() {
     );
   }
 
+  const isAllSelected = !selectedTenant;
+
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm" className="gap-2 max-w-[200px]">
+        <Button variant="outline" size="sm" className="gap-2 max-w-[220px]">
           <Building2 className="h-4 w-4 shrink-0" />
-          <span className="truncate">{selectedTenant?.name || "Selecione uma empresa"}</span>
+          <span className="truncate">
+            {isAllSelected ? "Todas as empresas" : selectedTenant?.name}
+          </span>
           <ChevronDown className="h-4 w-4 shrink-0" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-[250px]">
-        <DropdownMenuLabel>Empresas</DropdownMenuLabel>
+      <DropdownMenuContent align="end" className="w-[260px]">
+        <DropdownMenuLabel>Filtrar por empresa</DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => handleSelectTenant(null)}
+          className="flex items-center justify-between cursor-pointer"
+        >
+          <span className="text-sm font-medium">Todas as empresas</span>
+          {isAllSelected && <Check className="h-4 w-4 shrink-0 text-primary" />}
+        </DropdownMenuItem>
         <DropdownMenuSeparator />
         {tenants.map((tenant) => (
           <DropdownMenuItem

@@ -67,6 +67,9 @@ export interface Contract {
   dados_bancarios?: string;
   sla?: string;
   observacoes?: string;
+  file_path?: string;
+  file_size?: number;
+  file_mime_type?: string;
   created_at: string;
   updated_at: string;
 }

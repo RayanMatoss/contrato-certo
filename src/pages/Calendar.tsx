@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { useState, useMemo, useCallback } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -23,7 +23,9 @@ import { supabase } from "@/integrations/supabase/client";
 import { useTenant } from "@/hooks/use-tenant";
 import { useTenantSelector } from "@/hooks/use-tenant-selector";
 import { TenantFilter } from "@/components/tenants/TenantFilter";
-import { NewTaskDialog } from "@/components/tasks/NewTaskDialog";
+// Dynamic import para reduzir bundle inicial - dialog só carrega quando necessário
+import dynamic from "next/dynamic";
+const NewTaskDialog = dynamic(() => import("@/components/tasks/NewTaskDialog").then(mod => ({ default: mod.NewTaskDialog })), { ssr: false });
 
 type UUID = string;
 
@@ -92,18 +94,9 @@ export default function Calendar() {
   const [isNewTaskOpen, setIsNewTaskOpen] = useState(false);
   const [activeTab, setActiveTab] = useState("week");
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
-  const hasInitializedFilter = useRef(false);
-  
-  const { tenantId, isLoading: loadingTenant } = useTenant();
-  const { tenants, selectedTenantId } = useTenantSelector();
 
-  // Inicializar filtro com a empresa selecionada
-  useEffect(() => {
-    if (selectedTenantId && !hasInitializedFilter.current) {
-      setTenantFilter(selectedTenantId);
-      hasInitializedFilter.current = true;
-    }
-  }, [selectedTenantId]);
+  const { tenantId, isLoading: loadingTenant } = useTenant();
+  const { tenants } = useTenantSelector();
 
   // Buscar tarefas do Supabase - de todas as empresas ou filtrado
   const { data: tasksData, isLoading: loadingTasks } = useQuery({
@@ -493,8 +486,8 @@ export default function Calendar() {
         </Card>
       </div>
 
-      {/* New Task Dialog */}
-      {tenantId && (
+      {/* New Task Dialog - Defer: só renderiza quando aberto */}
+      {tenantId && isNewTaskOpen && (
         <NewTaskDialog
           open={isNewTaskOpen}
           onOpenChange={setIsNewTaskOpen}

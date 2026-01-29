@@ -163,7 +163,7 @@ export default function Tenants() {
                             onSelect={() => handleSwitchTenant(tenant.id)}
                           >
                             <Building2 className="h-4 w-4 mr-2" />
-                            Usar esta Empresa
+                            Filtrar por esta empresa
                           </DropdownMenuItem>
                         )}
                       </DropdownMenuContent>
@@ -188,7 +188,7 @@ export default function Tenants() {
                   {selectedTenantId === tenant.id && (
                     <div className="flex items-center justify-between mt-4 pt-4 border-t">
                       <StatusBadge
-                        label="Empresa Ativa"
+                        label="Filtro ativo"
                         variant="success"
                       />
                     </div>
