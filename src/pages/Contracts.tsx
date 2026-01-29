@@ -22,14 +22,7 @@ import {
 } from "@/components/ui/table";
 import { StatusBadge, getContractStatusVariant, getStatusLabel } from "@/components/ui/status-badge";
 import { Card, CardContent } from "@/components/ui/card";
-import { Plus, Search, Filter, MoreHorizontal, Eye, Pencil, FileText, Calendar } from "lucide-react";
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import { Badge } from "@/components/ui/badge";
+import { Plus, Search, Filter, FileText, ChevronRight } from "lucide-react";
 // Dynamic imports para reduzir bundle inicial - dialogs só carregam quando necessários
 import dynamic from "next/dynamic";
 const NewContractDialog = dynamic(() => import("@/components/contracts/NewContractDialog").then(mod => ({ default: mod.NewContractDialog })), { ssr: false });
@@ -259,26 +252,23 @@ export default function Contracts() {
           </CardContent>
         </Card>
 
-        {/* Contracts Table - table-fixed para caber na tela sem scroll horizontal */}
+        {/* Tabela compacta: resumo + Ver mais para detalhes (empresa, objeto, vigência no modal) */}
         {!isLoading && filteredContracts.length > 0 && (
           <Card>
             <CardContent className="p-0 overflow-hidden">
               <Table className="w-full table-fixed">
                 <TableHeader>
                   <TableRow className="hover:bg-transparent">
-                    <TableHead className="w-[12%] min-w-0">Número</TableHead>
-                    <TableHead className="w-[16%] min-w-0">Contratante</TableHead>
-                    <TableHead className="hidden w-[12%] min-w-0 md:table-cell">Empresa</TableHead>
-                    <TableHead className="hidden w-[18%] min-w-0 xl:table-cell">Objeto</TableHead>
-                    <TableHead className="w-[10%] min-w-0 text-right">Valor</TableHead>
-                    <TableHead className="hidden w-[12%] min-w-0 md:table-cell">Vigência</TableHead>
-                    <TableHead className="w-[8%] min-w-0">Status</TableHead>
-                    <TableHead className="w-[12%] min-w-0"></TableHead>
+                    <TableHead className="w-[20%] min-w-0">Número</TableHead>
+                    <TableHead className="w-[28%] min-w-0">Contratante</TableHead>
+                    <TableHead className="w-[14%] min-w-0 text-right">Valor</TableHead>
+                    <TableHead className="w-[12%] min-w-0">Status</TableHead>
+                    <TableHead className="w-[26%] min-w-0 text-right">Ações</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {filteredContracts.map((contract) => (
-                  <TableRow key={contract.id} className="cursor-pointer">
+                  <TableRow key={contract.id} className="group">
                     <TableCell className="min-w-0 font-medium">
                       <div className="flex items-center gap-1.5 truncate">
                         <FileText className="h-4 w-4 shrink-0 text-muted-foreground" />
@@ -286,33 +276,10 @@ export default function Contracts() {
                       </div>
                     </TableCell>
                     <TableCell className="min-w-0">
-                      <div className="truncate" title={contract.cliente}>{contract.cliente}</div>
-                    </TableCell>
-                    <TableCell className="hidden min-w-0 md:table-cell">
-                      <div className="truncate text-sm" title={contract.tenantName || undefined}>
-                        {contract.tenantName || "N/A"}
-                      </div>
-                    </TableCell>
-                    <TableCell className="hidden min-w-0 xl:table-cell">
-                      <div className="truncate text-muted-foreground" title={contract.objeto}>
-                        {contract.objeto}
-                      </div>
+                      <span className="truncate block" title={contract.cliente}>{contract.cliente}</span>
                     </TableCell>
                     <TableCell className="min-w-0 text-right font-medium whitespace-nowrap">
                       {formatCurrency(contract.valorMensal)}
-                    </TableCell>
-                    <TableCell className="hidden min-w-0 md:table-cell">
-                      <div className="flex items-center gap-1.5 flex-wrap">
-                        <span className="text-sm whitespace-nowrap">
-                          {formatDate(contract.dataInicio)} – {formatDate(contract.dataFim)}
-                        </span>
-                        {contract.status === "ativo" && contract.diasRestantes <= 30 && (
-                          <Badge variant="outline" className="text-warning border-warning/20 text-xs shrink-0">
-                            <Calendar className="h-3 w-3 mr-0.5" />
-                            {contract.diasRestantes}d
-                          </Badge>
-                        )}
-                      </div>
                     </TableCell>
                     <TableCell className="min-w-0">
                       <StatusBadge
@@ -320,36 +287,20 @@ export default function Contracts() {
                         variant={getContractStatusVariant(contract.status)}
                       />
                     </TableCell>
-                    <TableCell className="shrink-0 p-1">
-                      <DropdownMenu>
-                        <DropdownMenuTrigger asChild>
-                          <Button variant="ghost" size="icon" className="h-8 w-8">
-                            <MoreHorizontal className="h-4 w-4" />
-                          </Button>
-                        </DropdownMenuTrigger>
-                        <DropdownMenuContent align="end" onCloseAutoFocus={(e) => e.preventDefault()}>
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setViewingContract(contract);
-                              setIsViewDialogOpen(true);
-                            }}
-                          >
-                            <Eye className="h-4 w-4 mr-2" />
-                            Visualizar
-                          </DropdownMenuItem>
-                          <DropdownMenuItem
-                            onSelect={(e) => {
-                              e.preventDefault();
-                              setEditingContractId(contract.id);
-                              setIsNewContractOpen(true);
-                            }}
-                          >
-                            <Pencil className="h-4 w-4 mr-2" />
-                            Editar
-                          </DropdownMenuItem>
-                        </DropdownMenuContent>
-                      </DropdownMenu>
+                    <TableCell className="min-w-0 text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="text-primary hover:text-primary/90 -mr-2"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setViewingContract(contract);
+                          setIsViewDialogOpen(true);
+                        }}
+                      >
+                        Ver mais
+                        <ChevronRight className="h-4 w-4 ml-0.5" />
+                      </Button>
                     </TableCell>
                   </TableRow>
                 ))}
