@@ -355,7 +355,6 @@ export default function Contracts() {
                 ))}
                 </TableBody>
               </Table>
-              </div>
             </CardContent>
           </Card>
         )}
