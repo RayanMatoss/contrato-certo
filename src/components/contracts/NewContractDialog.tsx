@@ -149,8 +149,9 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
   const selectedTenantId = form.watch("tenant_id");
   const tenantIds = tenantsArray.map((t) => t.id);
 
+  type ClientOption = { id: string; razao_social: string | null; nome_fantasia: string | null; tenant_id: string };
   // Buscar contratantes de TODAS as empresas do usuário (disponíveis para qualquer contrato)
-  const { data: clients, isLoading: loadingClients } = useQuery({
+  const { data: clients, isLoading: loadingClients } = useQuery<ClientOption[]>({
     queryKey: ["clients", "all-tenants", tenantIds.join(",")],
     queryFn: async () => {
       if (tenantIds.length === 0) return [];
@@ -164,7 +165,7 @@ export function NewContractDialog({ open, onOpenChange, contractId }: NewContrac
         console.error("❌ Erro ao buscar contratantes:", error);
         throw error;
       }
-      return data || [];
+      return (data || []) as ClientOption[];
     },
     enabled: open && tenantIds.length > 0,
   });

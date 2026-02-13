@@ -17,6 +17,7 @@ import {
   LogOut,
   Bell,
   Briefcase,
+  Search,
 } from "@/components/icons";
 import { LicityLogo } from "@/components/ui/licity-logo";
 import {
@@ -80,6 +81,12 @@ const mainNavItems = [
     title: "Documentos",
     href: "/documentos",
     icon: FolderOpen,
+    badgeKey: null,
+  },
+  {
+    title: "Buscador de Licitações",
+    href: "/tenders",
+    icon: Search,
     badgeKey: null,
   },
   {
