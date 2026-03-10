@@ -363,7 +363,7 @@ export default function Documents() {
         zip.file(fileName, await data.arrayBuffer());
       }
 
-      const blob = await zip.generateAsync({ type: "blob" });
+      const blob = (await zip.generateAsync({ type: "blob" })) as Blob;
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
       a.href = url;
