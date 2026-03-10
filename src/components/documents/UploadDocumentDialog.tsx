@@ -40,7 +40,7 @@ import { useTenantSelector } from "@/hooks/use-tenant-selector";
 const documentSchema = z.object({
   tenant_id: z.string().min(1, "Empresa é obrigatória"),
   name: z.string().min(1, "Nome do documento é obrigatório"),
-  type: z.enum(["certidao", "assinatura", "atestado", "proposta", "procuracao", "fiscal", "comprovante", "outros"]),
+  type: z.enum(["certidao", "assinatura", "atestado", "proposta", "outros", "documento_empresa", "documento_representante", "contrato"]),
   validade: z.string().optional(),
   contract_id: z.string().optional(),
   client_id: z.string().optional(),
@@ -487,9 +487,9 @@ export function UploadDocumentDialog({ open, onOpenChange }: UploadDocumentDialo
                         <SelectItem value="assinatura">Assinatura</SelectItem>
                         <SelectItem value="atestado">Atestado</SelectItem>
                         <SelectItem value="proposta">Proposta</SelectItem>
-                        <SelectItem value="procuracao">Procuração</SelectItem>
-                        <SelectItem value="fiscal">Fiscal</SelectItem>
-                        <SelectItem value="comprovante">Comprovante</SelectItem>
+                        <SelectItem value="documento_empresa">Documento da empresa</SelectItem>
+                        <SelectItem value="documento_representante">Documento do Representante</SelectItem>
+                        <SelectItem value="contrato">Contrato</SelectItem>
                         <SelectItem value="outros">Outros</SelectItem>
                       </SelectContent>
                     </Select>
