@@ -14,10 +14,6 @@ import { toast } from "sonner";
 import { Loader2, Save, FileText, AlertCircle } from "lucide-react";
 import { RichTextEditor } from "./RichTextEditor";
 
-// docshift só funciona no browser (usa DOMParser, Node) - carregar dinamicamente
-const loadDocshift = () =>
-  import("docshift").then((m) => ({ toHtml: m.toHtml, toDocx: m.toDocx }));
-
 interface PdfEditorDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -37,7 +33,6 @@ export function PdfEditorDialog({
 }: PdfEditorDialogProps) {
   const [html, setHtml] = useState("");
   const [useFallback, setUseFallback] = useState(false);
-  const [useDocshift, setUseDocshift] = useState(false); // true = preserva estrutura
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,30 +67,7 @@ export function PdfEditorDialog({
         headers.Authorization = `Bearer ${session.access_token}`;
       }
 
-      // 1. Tentar PDF→DOCX via CloudConvert (preserva estrutura)
-      const docxRes = await fetch("/api/documents/convert-pdf-to-docx", {
-        method: "POST",
-        headers,
-        body: JSON.stringify({ pdfBase64: base64 }),
-      });
-
-      if (docxRes.ok) {
-        const { docxBase64 } = await docxRes.json();
-        const { toHtml } = await loadDocshift();
-        const binary = atob(docxBase64);
-        const bytes = new Uint8Array(binary.length);
-        for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
-        const docxBlob = new Blob([bytes], {
-          type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        });
-        const convertedHtml = await toHtml(docxBlob);
-        setHtml(convertedHtml || "");
-        setUseDocshift(true);
-        setUseFallback(false);
-        return;
-      }
-
-      // 2. Fallback: PDF→HTML via mammoth (perde formatação)
+      // PDF→HTML via CloudConvert/LibreOffice (PDF→DOCX) + Mammoth (DOCX→HTML)
       const htmlRes = await fetch("/api/documents/convert-pdf-to-html", {
         method: "POST",
         headers,
@@ -108,7 +80,6 @@ export function PdfEditorDialog({
       }
 
       setHtml(json.html || "");
-      setUseDocshift(false);
       setUseFallback(!!json.useFallback);
     } catch (err) {
       const msg = err instanceof Error ? err.message : "Erro ao carregar documento";
@@ -139,47 +110,19 @@ export function PdfEditorDialog({
         headers.Authorization = `Bearer ${session.access_token}`;
       }
 
-      let pdfBlob: Blob;
+      // HTML→PDF via html-to-docx + CloudConvert/LibreOffice
+      const res = await fetch("/api/documents/convert-html-to-pdf", {
+        method: "POST",
+        headers,
+        body: JSON.stringify({ html }),
+      });
 
-      if (useDocshift) {
-        // DocShift no browser: HTML→DOCX, depois DOCX→PDF no servidor
-        const { toDocx } = await loadDocshift();
-        const docxBlob = await toDocx(html);
-        const docxArrayBuffer = await docxBlob.arrayBuffer();
-        const docxBase64 = btoa(
-          new Uint8Array(docxArrayBuffer).reduce(
-            (acc, byte) => acc + String.fromCharCode(byte),
-            ""
-          )
-        );
-
-        const res = await fetch("/api/documents/convert-docx-to-pdf", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ docxBase64 }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Erro na conversão");
-        }
-
-        pdfBlob = await res.blob();
-      } else {
-        // Fallback: HTML→PDF via html-to-docx + CloudConvert/LibreOffice
-        const res = await fetch("/api/documents/convert-html-to-pdf", {
-          method: "POST",
-          headers,
-          body: JSON.stringify({ html }),
-        });
-
-        if (!res.ok) {
-          const errData = await res.json().catch(() => ({}));
-          throw new Error(errData.error || "Erro na conversão");
-        }
-
-        pdfBlob = await res.blob();
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}));
+        throw new Error(errData.error || "Erro na conversão");
       }
+
+      const pdfBlob = await res.blob();
 
       const { error: uploadError } = await supabase.storage
         .from("documents" as never)
@@ -220,11 +163,9 @@ export function PdfEditorDialog({
 
         <div className="flex-1 overflow-hidden flex flex-col gap-3">
           <p className="text-sm text-muted-foreground">
-            {useDocshift
-              ? "Documento convertido com CloudConvert + DocShift. A estrutura original será preservada ao salvar."
-              : useFallback
-                ? "LibreOffice não encontrado. Editando em modo texto (formatação não preservada). Configure CLOUDCONVERT_API_KEY para preservar estrutura."
-                : "Edite o documento abaixo. A formatação será preservada na conversão para PDF."}
+            {useFallback
+              ? "LibreOffice não encontrado. Editando em modo texto (formatação não preservada). Configure CLOUDCONVERT_API_KEY para preservar estrutura."
+              : "Edite o documento abaixo. A formatação será preservada na conversão para PDF."}
           </p>
 
           {loading ? (
