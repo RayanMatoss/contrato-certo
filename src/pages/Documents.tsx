@@ -12,6 +12,9 @@ import { toast } from "sonner";
 
 // Dynamic import para reduzir bundle inicial - dialog só carrega quando necessário
 const UploadDocumentDialog = dynamic(() => import("@/components/documents/UploadDocumentDialog").then(mod => ({ default: mod.UploadDocumentDialog })), { ssr: false });
+const EditDocumentDialog = dynamic(() => import("@/components/documents/EditDocumentDialog").then(mod => ({ default: mod.EditDocumentDialog })), { ssr: false });
+const DocumentPreviewDialog = dynamic(() => import("@/components/documents/DocumentPreviewDialog").then(mod => ({ default: mod.DocumentPreviewDialog })), { ssr: false });
+const PdfEditorDialog = dynamic(() => import("@/components/documents/PdfEditorDialog").then(mod => ({ default: mod.PdfEditorDialog })), { ssr: false });
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -23,6 +26,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Checkbox } from "@/components/ui/checkbox";
 import {
   Table,
   TableBody,
@@ -42,6 +46,7 @@ import {
   Search, 
   Filter,
   Upload,
+  Loader2,
   FolderOpen,
   FileText,
   File,
@@ -51,7 +56,9 @@ import {
   Trash2,
   Clock,
   AlertTriangle,
-  CheckCircle
+  CheckCircle,
+  Eye,
+  Pencil
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -59,11 +66,15 @@ interface Document {
   id: string;
   name: string;
   type: string;
-  file_path: string;
+  file_path?: string | null;
   file_size: number | null;
   validade: string | null;
   created_at: string;
+  updated_at?: string;
   tenant_id?: string;
+  contract_id?: string | null;
+  client_id?: string | null;
+  observacoes?: string | null;
   tenantName?: string;
   client?: {
     razao_social: string;
@@ -79,10 +90,14 @@ const categoryLabels: Record<string, string> = {
   assinatura: "Assinatura",
   atestado: "Atestado",
   proposta: "Proposta",
+  outros: "Outros",
+  documento_empresa: "Documento da empresa",
+  documento_representante: "Documento do Representante",
+  contrato: "Contrato",
+  // Legado - documentos existentes
   procuracao: "Procuração",
   fiscal: "Fiscal",
   comprovante: "Comprovante",
-  outros: "Outros",
 };
 
 const categoryIcons: Record<string, typeof FileText> = {
@@ -90,10 +105,13 @@ const categoryIcons: Record<string, typeof FileText> = {
   assinatura: File,
   atestado: FileText,
   proposta: FileSpreadsheet,
+  outros: File,
+  documento_empresa: FileText,
+  documento_representante: FileText,
+  contrato: FileText,
   procuracao: FileText,
   fiscal: FileText,
   comprovante: FileText,
-  outros: File,
 };
 
 function getStatusIcon(status: string) {
@@ -127,6 +145,12 @@ export default function Documents() {
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
   const [tenantFilter, setTenantFilter] = useState<string | null>(null);
   const [isUploadDialogOpen, setIsUploadDialogOpen] = useState(false);
+  const [previewDoc, setPreviewDoc] = useState<{ filePath: string | null | undefined; fileName: string; document: Document } | null>(null);
+  const [editDoc, setEditDoc] = useState<Document | null>(null);
+  const [pdfEditorDoc, setPdfEditorDoc] = useState<{ filePath: string; fileName: string; document: Document } | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [downloadingBulk, setDownloadingBulk] = useState(false);
+  const [showExpiredDocs, setShowExpiredDocs] = useState(false); // "pasta" de expirados oculta por padrão
 
   const { tenantId, isLoading: loadingTenant } = useTenant();
   const { tenants } = useTenantSelector();
@@ -153,7 +177,11 @@ export default function Documents() {
           file_size,
           validade,
           tenant_id,
+          contract_id,
+          client_id,
+          observacoes,
           created_at,
+          updated_at,
           clients:client_id (
             razao_social,
             nome_fantasia
@@ -180,6 +208,9 @@ export default function Documents() {
         file_size?: number;
         validade?: string;
         tenant_id: string;
+        contract_id?: string | null;
+        client_id?: string | null;
+        observacoes?: string | null;
         created_at: string;
         clients?: { razao_social?: string; nome_fantasia?: string } | null;
         contracts?: { numero?: string } | null;
@@ -216,9 +247,15 @@ export default function Documents() {
     return documents.filter((doc) => {
       const matchesSearch = doc.name.toLowerCase().includes(searchTerm.toLowerCase());
       const matchesCategory = categoryFilter === "all" || doc.type === categoryFilter;
-      return matchesSearch && matchesCategory;
+      const status = getDocumentStatus(doc.validade);
+      const isExpired = status === "expirado";
+      // Por padrão, expirados ficam "na pasta" - só aparecem quando showExpiredDocs
+      if (showExpiredDocs) {
+        return matchesSearch && matchesCategory && isExpired;
+      }
+      return matchesSearch && matchesCategory && !isExpired;
     });
-  }, [documents, searchTerm, categoryFilter]);
+  }, [documents, searchTerm, categoryFilter, showExpiredDocs]);
 
   const formatDate = (dateString: string) => {
     return new Date(dateString).toLocaleDateString("pt-BR");
@@ -274,6 +311,76 @@ export default function Documents() {
       toast.error(`Erro ao excluir documento: ${error.message}`);
     },
   });
+
+  const selectedDocsWithFile = useMemo(() => {
+    return filteredDocuments.filter(
+      (d) => selectedIds.has(d.id) && d.file_path
+    );
+  }, [filteredDocuments, selectedIds]);
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const docsWithFile = filteredDocuments.filter((d) => d.file_path);
+    if (selectedIds.size >= docsWithFile.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(docsWithFile.map((d) => d.id)));
+    }
+  };
+
+  const handleBulkDownload = async () => {
+    if (selectedDocsWithFile.length === 0) return;
+    setDownloadingBulk(true);
+    try {
+      const JSZip = (await import("jszip")).default;
+      const zip = new JSZip();
+
+      for (const doc of selectedDocsWithFile) {
+        if (!doc.file_path) continue;
+        const { data, error } = await supabase.storage
+          .from("documents" as never)
+          .download(doc.file_path);
+        if (error || !data) continue;
+        // Usar extensão do file_path (ex: tenant/arquivo.pdf) ou do nome; fallback: pdf
+        const pathExt = doc.file_path.includes(".") ? doc.file_path.split(".").pop()?.toLowerCase() : null;
+        const nameExt = doc.name.includes(".") ? doc.name.split(".").pop()?.toLowerCase() : null;
+        const ext = nameExt || pathExt || "pdf";
+        const baseName = doc.name.replace(/\.[^/.]+$/, "") || doc.name;
+        let fileName = `${baseName}.${ext}`;
+        let counter = 1;
+        while (zip.file(fileName)) {
+          fileName = `${baseName} (${counter}).${ext}`;
+          counter++;
+        }
+        zip.file(fileName, await data.arrayBuffer());
+      }
+
+      const blob = await zip.generateAsync({ type: "blob" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `documentos-${new Date().toISOString().slice(0, 10)}.zip`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+      toast.success(`${selectedDocsWithFile.length} documento(s) baixado(s) em ZIP`);
+      setSelectedIds(new Set());
+    } catch (err) {
+      const msg = err instanceof Error ? err.message : "Erro ao baixar";
+      toast.error(msg);
+    } finally {
+      setDownloadingBulk(false);
+    }
+  };
 
   // Função para download
   const handleDownload = async (filePath: string, fileName: string) => {
@@ -351,15 +458,45 @@ export default function Documents() {
               </div>
             </div>
           </Card>
-          <Card className="p-2 sm:p-3 md:p-4">
-            <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
-              <div className="p-1 sm:p-1.5 md:p-2 rounded-lg bg-destructive/10 flex-shrink-0">
-                <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 text-destructive" />
+          <Card
+            className={cn(
+              "p-2 sm:p-3 md:p-4 transition-colors",
+              expiredCount > 0 && "cursor-pointer hover:bg-destructive/5",
+              showExpiredDocs && "ring-2 ring-destructive/50"
+            )}
+            onClick={() => {
+              if (expiredCount > 0) {
+                setShowExpiredDocs((v) => !v);
+                setSelectedIds(new Set());
+              }
+            }}
+          >
+            <div className="flex items-center justify-between gap-1.5 sm:gap-2 md:gap-3">
+              <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3 min-w-0 flex-1">
+                <div className="p-1 sm:p-1.5 md:p-2 rounded-lg bg-destructive/10 flex-shrink-0">
+                  <AlertTriangle className="h-3.5 w-3.5 sm:h-4 sm:w-4 md:h-5 md:w-5 text-destructive" />
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{expiredCount}</p>
+                  <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground leading-tight truncate">
+                    {showExpiredDocs ? "Expirados (visível)" : "Expirados"}
+                  </p>
+                </div>
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-lg sm:text-xl md:text-2xl font-bold truncate">{expiredCount}</p>
-                <p className="text-[9px] sm:text-[10px] md:text-xs text-muted-foreground leading-tight truncate">Expirados</p>
-              </div>
+              {expiredCount > 0 && (
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  className="text-xs shrink-0 h-7 px-2"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setShowExpiredDocs((v) => !v);
+                    setSelectedIds(new Set());
+                  }}
+                >
+                  {showExpiredDocs ? "Ocultar" : "Ver expiradas"}
+                </Button>
+              )}
             </div>
           </Card>
         </div>
@@ -389,9 +526,9 @@ export default function Documents() {
                     <SelectItem value="assinatura">Assinaturas</SelectItem>
                     <SelectItem value="atestado">Atestados</SelectItem>
                     <SelectItem value="proposta">Propostas</SelectItem>
-                    <SelectItem value="procuracao">Procurações</SelectItem>
-                    <SelectItem value="fiscal">Fiscal</SelectItem>
-                    <SelectItem value="comprovante">Comprovantes</SelectItem>
+                    <SelectItem value="documento_empresa">Documento da empresa</SelectItem>
+                    <SelectItem value="documento_representante">Documento do Representante</SelectItem>
+                    <SelectItem value="contrato">Contrato</SelectItem>
                     <SelectItem value="outros">Outros</SelectItem>
                   </SelectContent>
                 </Select>
@@ -405,6 +542,57 @@ export default function Documents() {
           </CardContent>
         </Card>
 
+        {/* Banner quando visualizando pasta de expirados */}
+        {showExpiredDocs && expiredCount > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border bg-destructive/5 border-destructive/20">
+            <div className="flex items-center gap-2">
+              <FolderOpen className="h-4 w-4 text-destructive" />
+              <span className="text-sm font-medium">Pasta Expirados — {expiredCount} documento(s)</span>
+            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setShowExpiredDocs(false);
+                setSelectedIds(new Set());
+              }}
+            >
+              Voltar
+            </Button>
+          </div>
+        )}
+
+        {/* Barra de ações - aparece acima da tabela quando há seleção */}
+        {selectedIds.size > 0 && (
+          <div className="flex items-center justify-between gap-3 px-4 py-3 rounded-lg border bg-primary/5">
+            <span className="text-sm font-medium">
+              {selectedIds.size} documento(s) selecionado(s)
+            </span>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setSelectedIds(new Set())}
+              >
+                Desmarcar
+              </Button>
+              <Button
+                size="sm"
+                className="gap-1.5"
+                onClick={handleBulkDownload}
+                disabled={downloadingBulk || selectedDocsWithFile.length === 0}
+              >
+                {downloadingBulk ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+                Baixar
+              </Button>
+            </div>
+          </div>
+        )}
+
         {/* Documents Table */}
         <Card>
           <CardContent className="p-0 overflow-x-auto -mx-2 sm:-mx-3 md:mx-0">
@@ -412,13 +600,23 @@ export default function Documents() {
               <Table>
               <TableHeader>
                 <TableRow className="hover:bg-transparent">
+                  <TableHead className="w-10 px-2 py-2 sm:py-3">
+                    <Checkbox
+                      checked={
+                        (filteredDocuments.filter((d) => d.file_path).length > 0 &&
+                          selectedIds.size >= filteredDocuments.filter((d) => d.file_path).length)
+                      }
+                      onCheckedChange={toggleSelectAll}
+                      aria-label="Selecionar todos"
+                    />
+                  </TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Documento</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3 hidden sm:table-cell">Categoria</TableHead>
                   <TableHead className="hidden md:table-cell px-3 md:px-4 text-xs sm:text-sm py-2 md:py-3">Empresa</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Upload</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Validade/Vigência</TableHead>
                   <TableHead className="px-2 sm:px-3 md:px-4 text-xs sm:text-sm py-2 sm:py-3">Status</TableHead>
-                  <TableHead className="w-[35px] sm:w-[40px] md:w-[50px] px-1 sm:px-2 md:px-4 py-2 sm:py-3"></TableHead>
+                  <TableHead className="w-[35px] sm:w-[40px] md:w-[50px] px-1 sm:px-2 md:px-4 py-2 sm:py-3 text-right">Ações</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
@@ -430,8 +628,10 @@ export default function Documents() {
                   </TableRow>
                 ) : filteredDocuments.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-8 text-muted-foreground">
-                      Nenhum documento encontrado. Clique em &quot;Upload Documento&quot; para começar.
+                    <TableCell colSpan={8} className="text-center py-8 text-muted-foreground">
+                      {showExpiredDocs
+                        ? "Nenhum documento expirado encontrado."
+                        : "Nenhum documento encontrado. Clique em \"Upload Documento\" para começar."}
                     </TableCell>
                   </TableRow>
                 ) : (
@@ -441,6 +641,17 @@ export default function Documents() {
                     
                     return (
                       <TableRow key={doc.id}>
+                        <TableCell className="w-10 px-2 py-2 sm:py-3">
+                          {doc.file_path ? (
+                            <Checkbox
+                              checked={selectedIds.has(doc.id)}
+                              onCheckedChange={() => toggleSelect(doc.id)}
+                              aria-label={`Selecionar ${doc.name}`}
+                            />
+                          ) : (
+                            <span className="inline-block w-4 h-4" />
+                          )}
+                        </TableCell>
                         <TableCell className="px-2 sm:px-3 md:px-4 py-2 sm:py-3">
                           <div className="flex items-center gap-1.5 sm:gap-2 md:gap-3">
                             <div className="p-1 sm:p-1.5 md:p-2 rounded-lg bg-muted flex-shrink-0">
@@ -497,7 +708,26 @@ export default function Documents() {
                               <DropdownMenuItem
                                 onSelect={(e) => {
                                   e.preventDefault();
-                                  handleDownload(doc.file_path, doc.name);
+                                  setPreviewDoc({ filePath: doc.file_path ?? null, fileName: doc.name, document: doc });
+                                }}
+                              >
+                                <Eye className="h-4 w-4 mr-2" />
+                                Visualizar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  setEditDoc(doc);
+                                }}
+                              >
+                                <Pencil className="h-4 w-4 mr-2" />
+                                Editar
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onSelect={(e) => {
+                                  e.preventDefault();
+                                  if (doc.file_path) handleDownload(doc.file_path, doc.name);
+                                  else toast.error("Este documento não possui arquivo para download.");
                                 }}
                               >
                                 <Download className="h-4 w-4 mr-2" />
@@ -538,6 +768,52 @@ export default function Documents() {
           tenantId={tenantId}
         />
       )}
+
+      {/* Preview Dialog */}
+      <DocumentPreviewDialog
+        open={!!previewDoc}
+        onOpenChange={(open) => !open && setPreviewDoc(null)}
+        filePath={previewDoc?.filePath ?? null}
+        fileName={previewDoc?.fileName ?? ""}
+        cacheBuster={previewDoc?.document?.updated_at ?? previewDoc?.document?.file_size ?? ""}
+        onEdit={() => {
+          if (previewDoc?.document) {
+            setEditDoc(previewDoc.document);
+            setPreviewDoc(null);
+          }
+        }}
+        onEditText={() => {
+          if (previewDoc?.document?.file_path && previewDoc?.document?.tenant_id) {
+            setPdfEditorDoc({
+              filePath: previewDoc.document.file_path,
+              fileName: previewDoc.fileName,
+              document: previewDoc.document,
+            });
+            setPreviewDoc(null);
+          }
+        }}
+      />
+
+      {pdfEditorDoc && (
+        <PdfEditorDialog
+          open={!!pdfEditorDoc}
+          onOpenChange={(open) => !open && setPdfEditorDoc(null)}
+          filePath={pdfEditorDoc.filePath}
+          fileName={pdfEditorDoc.fileName}
+          documentId={pdfEditorDoc.document.id}
+          onSuccess={() => {
+            queryClient.invalidateQueries({ queryKey: ["documents", tenantFilter] });
+          }}
+        />
+      )}
+
+      {/* Edit Document Dialog */}
+      <EditDocumentDialog
+        open={!!editDoc}
+        onOpenChange={(open) => !open && setEditDoc(null)}
+        document={editDoc}
+        tenantFilter={tenantFilter}
+      />
     </AppLayout>
   );
 }
