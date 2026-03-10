@@ -1,9 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
-import { useEditor, EditorContent } from "@tiptap/react";
-import StarterKit from "@tiptap/starter-kit";
-import Placeholder from "@tiptap/extension-placeholder";
+import { useEffect, useRef, useCallback } from "react";
 
 interface RichTextEditorProps {
   content: string;
@@ -20,35 +17,36 @@ export function RichTextEditor({
   className = "",
   editable = true,
 }: RichTextEditorProps) {
-  const editor = useEditor({
-    extensions: [
-      StarterKit,
-      Placeholder.configure({ placeholder }),
-    ],
-    content,
-    editable,
-    immediatelyRender: false,
-    onUpdate: ({ editor: ed }) => {
-      onChange(ed.getHTML());
-    },
-    editorProps: {
-      attributes: {
-        class: "prose prose-sm dark:prose-invert max-w-none min-h-[350px] p-4 focus:outline-none",
-      },
-    },
-  });
+  const editorRef = useRef<HTMLDivElement>(null);
+  const lastContentRef = useRef<string>("");
+
+  const handleInput = useCallback(() => {
+    if (!editorRef.current || !editable) return;
+    const html = editorRef.current.innerHTML;
+    lastContentRef.current = html;
+    onChange(html);
+  }, [onChange, editable]);
 
   useEffect(() => {
-    if (editor && content !== editor.getHTML()) {
-      editor.commands.setContent(content, { emitUpdate: false });
+    if (!editorRef.current) return;
+    if (content !== lastContentRef.current) {
+      lastContentRef.current = content;
+      editorRef.current.innerHTML = content || "";
     }
-  }, [content, editor]);
+  }, [content]);
 
   return (
     <div
       className={`rounded-md border border-input bg-background ${className}`}
     >
-      <EditorContent editor={editor} />
+      <div
+        ref={editorRef}
+        contentEditable={editable}
+        suppressContentEditableWarning
+        onInput={handleInput}
+        data-placeholder={placeholder}
+        className="prose prose-sm dark:prose-invert max-w-none min-h-[350px] p-4 focus:outline-none [&:empty]:before:content-[attr(data-placeholder)] [&:empty]:before:text-muted-foreground"
+      />
     </div>
   );
 }
